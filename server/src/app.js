@@ -95,6 +95,43 @@ app.get('/api/create-test-user', async (_req, res) => {
   }
 });
 
+// Clear all data for fresh start
+app.get('/api/clear-all-data', async (_req, res) => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    const Property = (await import('./models/Property.js')).default;
+    const Payment = (await import('./models/Payment.js')).default;
+    const Invoice = (await import('./models/Invoice.js')).default;
+    const Lease = (await import('./models/Lease.js')).default;
+    
+    // Clear all collections
+    await User.deleteMany({});
+    await Property.deleteMany({});
+    await Payment.deleteMany({});
+    await Invoice.deleteMany({});
+    await Lease.deleteMany({});
+    
+    // Create a fresh admin user
+    const adminUser = await User.create({
+      name: 'Admin',
+      email: 'admin@spm.test',
+      passwordHash: await User.hashPassword('password123'),
+      role: 'ADMIN',
+    });
+    
+    res.json({ 
+      message: 'All data cleared successfully. Fresh system ready!',
+      adminUser: {
+        email: adminUser.email,
+        role: adminUser.role,
+        name: adminUser.name
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/tenants', tenantRoutes);
