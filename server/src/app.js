@@ -13,6 +13,7 @@ import tenantRoutes from './routes/tenants.js';
 import paymentRoutes from './routes/payments.js';
 import invoiceRoutes from './routes/invoices.js';
 import moveInRoutes from './routes/moveIn.js';
+import reportRoutes from './routes/reports.js';
 import { startInvoiceCron } from './jobs/invoiceCron.js';
 
 dotenv.config();
@@ -138,6 +139,7 @@ app.use('/api/tenants', tenantRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/move-in', moveInRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Global error handler
 // eslint-disable-next-line no-unused-vars
