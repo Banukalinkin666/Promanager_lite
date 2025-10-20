@@ -710,4 +710,396 @@ router.get('/uncollected-rent/export/pdf', authenticate, async (req, res) => {
   }
 });
 
+// Property Management Reports
+router.get('/property-management', authenticate, async (req, res) => {
+  try {
+    const { 
+      reportType = 'income-expenses',
+      propertyId, 
+      year,
+      ownerId,
+      sortBy = 'date',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 50
+    } = req.query;
+
+    let data = {};
+
+    switch (reportType) {
+      case 'income-expenses':
+        data = await generateIncomeExpensesReport(propertyId, year, page, limit);
+        break;
+      case 'occupancy-by-property':
+        data = await generateOccupancyByPropertyReport(propertyId, year, page, limit);
+        break;
+      case 'occupancy-by-owner':
+        data = await generateOccupancyByOwnerReport(ownerId, year, page, limit);
+        break;
+      case 'maintenance-details':
+        data = await generateMaintenanceDetailsReport(propertyId, year, page, limit);
+        break;
+      case 'equipment-details':
+        data = await generateEquipmentDetailsReport(propertyId, year, page, limit);
+        break;
+      default:
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid report type' 
+        });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        reportType,
+        ...data
+      }
+    });
+
+  } catch (error) {
+    console.error('Property management report error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to generate property management report',
+      error: error.message 
+    });
+  }
+});
+
+// Income & Expenses Report
+async function generateIncomeExpensesReport(propertyId, year, page, limit) {
+  const filter = {};
+  
+  if (propertyId) filter['metadata.propertyId'] = propertyId;
+  
+  if (year) {
+    const startDate = new Date(`${year}-01-01`);
+    const endDate = new Date(`${year}-12-31`);
+    filter.createdAt = {
+      $gte: startDate,
+      $lte: endDate
+    };
+  }
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+
+  // Get all payments for the property
+  const payments = await Payment.find(filter)
+    .populate('tenant', 'firstName lastName email phone')
+    .populate('metadata.propertyId', 'title address')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit));
+
+  const totalCount = await Payment.countDocuments(filter);
+
+  // Calculate income summary
+  const incomeSummary = await Payment.aggregate([
+    { $match: { ...filter, status: 'SUCCEEDED' } },
+    {
+      $group: {
+        _id: null,
+        totalIncome: { $sum: '$amount' },
+        totalTransactions: { $sum: 1 },
+        averageAmount: { $avg: '$amount' }
+      }
+    }
+  ]);
+
+  // Calculate monthly breakdown
+  const monthlyBreakdown = await Payment.aggregate([
+    { $match: { ...filter, status: 'SUCCEEDED' } },
+    {
+      $group: {
+        _id: {
+          month: { $month: '$createdAt' },
+          year: { $year: '$createdAt' }
+        },
+        totalIncome: { $sum: '$amount' },
+        transactionCount: { $sum: 1 }
+      }
+    },
+    { $sort: { '_id.month': 1 } }
+  ]);
+
+  // Calculate status breakdown
+  const statusBreakdown = await Payment.aggregate([
+    { $match: filter },
+    {
+      $group: {
+        _id: '$status',
+        count: { $sum: 1 },
+        totalAmount: { $sum: '$amount' }
+      }
+    }
+  ]);
+
+  return {
+    payments: payments.map(payment => ({
+      id: payment._id,
+      tenant: {
+        name: `${payment.tenant.firstName} ${payment.tenant.lastName}`,
+        email: payment.tenant.email,
+        phone: payment.tenant.phone
+      },
+      property: payment.metadata.propertyId.title,
+      unit: payment.metadata.unitId,
+      amount: payment.amount,
+      status: payment.status,
+      method: payment.method,
+      description: payment.description,
+      paidDate: payment.paidDate,
+      createdAt: payment.createdAt
+    })),
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalCount / parseInt(limit)),
+      totalCount,
+      hasNext: skip + payments.length < totalCount,
+      hasPrev: parseInt(page) > 1
+    },
+    summary: incomeSummary[0] || {
+      totalIncome: 0,
+      totalTransactions: 0,
+      averageAmount: 0
+    },
+    breakdown: {
+      monthly: monthlyBreakdown,
+      status: statusBreakdown
+    }
+  };
+}
+
+// Occupancy Report By Property
+async function generateOccupancyByPropertyReport(propertyId, year, page, limit) {
+  const filter = {};
+  
+  if (propertyId) filter._id = propertyId;
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+
+  // Get properties with occupancy data
+  const properties = await Property.find(filter)
+    .populate('owner', 'name email')
+    .sort({ title: 1 })
+    .skip(skip)
+    .limit(parseInt(limit));
+
+  const totalCount = await Property.countDocuments(filter);
+
+  // Calculate occupancy statistics for each property
+  const propertiesWithStats = await Promise.all(properties.map(async (property) => {
+    const totalUnits = property.units.length;
+    const occupiedUnits = property.units.filter(unit => unit.status === 'OCCUPIED').length;
+    const vacantUnits = property.units.filter(unit => unit.status === 'AVAILABLE').length;
+    const maintenanceUnits = property.units.filter(unit => unit.status === 'MAINTENANCE').length;
+    
+    const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
+
+    // Get current tenants
+    const currentTenants = await User.find({
+      _id: { $in: property.units.filter(unit => unit.tenant).map(unit => unit.tenant) }
+    }).select('firstName lastName email phone');
+
+    return {
+      id: property._id,
+      title: property.title,
+      address: property.address,
+      owner: {
+        name: property.owner.name,
+        email: property.owner.email
+      },
+      totalUnits,
+      occupiedUnits,
+      vacantUnits,
+      maintenanceUnits,
+      occupancyRate: Math.round(occupancyRate * 100) / 100,
+      currentTenants: currentTenants.map(tenant => ({
+        name: `${tenant.firstName} ${tenant.lastName}`,
+        email: tenant.email,
+        phone: tenant.phone
+      }))
+    };
+  }));
+
+  return {
+    properties: propertiesWithStats,
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalCount / parseInt(limit)),
+      totalCount,
+      hasNext: skip + properties.length < totalCount,
+      hasPrev: parseInt(page) > 1
+    }
+  };
+}
+
+// Occupancy Report By Owner
+async function generateOccupancyByOwnerReport(ownerId, year, page, limit) {
+  const filter = {};
+  
+  if (ownerId) filter.owner = ownerId;
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+
+  // Get properties owned by the owner
+  const properties = await Property.find(filter)
+    .populate('owner', 'name email')
+    .sort({ title: 1 })
+    .skip(skip)
+    .limit(parseInt(limit));
+
+  const totalCount = await Property.countDocuments(filter);
+
+  // Calculate owner statistics
+  const ownerStats = await Property.aggregate([
+    { $match: filter },
+    {
+      $group: {
+        _id: '$owner',
+        totalProperties: { $sum: 1 },
+        totalUnits: { $sum: { $size: '$units' } },
+        occupiedUnits: {
+          $sum: {
+            $size: {
+              $filter: {
+                input: '$units',
+                cond: { $eq: ['$$this.status', 'OCCUPIED'] }
+              }
+            }
+          }
+        },
+        vacantUnits: {
+          $sum: {
+            $size: {
+              $filter: {
+                input: '$units',
+                cond: { $eq: ['$$this.status', 'AVAILABLE'] }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]);
+
+  return {
+    properties: properties.map(property => ({
+      id: property._id,
+      title: property.title,
+      address: property.address,
+      totalUnits: property.units.length,
+      occupiedUnits: property.units.filter(unit => unit.status === 'OCCUPIED').length,
+      vacantUnits: property.units.filter(unit => unit.status === 'AVAILABLE').length,
+      maintenanceUnits: property.units.filter(unit => unit.status === 'MAINTENANCE').length
+    })),
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalCount / parseInt(limit)),
+      totalCount,
+      hasNext: skip + properties.length < totalCount,
+      hasPrev: parseInt(page) > 1
+    },
+    ownerStats: ownerStats[0] || {
+      totalProperties: 0,
+      totalUnits: 0,
+      occupiedUnits: 0,
+      vacantUnits: 0
+    }
+  };
+}
+
+// Maintenance Details Report
+async function generateMaintenanceDetailsReport(propertyId, year, page, limit) {
+  // This would typically query a maintenance/repairs collection
+  // For now, we'll return a placeholder structure
+  return {
+    maintenanceRecords: [],
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: 0,
+      totalCount: 0,
+      hasNext: false,
+      hasPrev: false
+    },
+    summary: {
+      totalMaintenanceCost: 0,
+      totalRecords: 0,
+      averageCost: 0
+    }
+  };
+}
+
+// Equipment Details Report
+async function generateEquipmentDetailsReport(propertyId, year, page, limit) {
+  // This would typically query an equipment/inventory collection
+  // For now, we'll return a placeholder structure
+  return {
+    equipmentRecords: [],
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: 0,
+      totalCount: 0,
+      hasNext: false,
+      hasPrev: false
+    },
+    summary: {
+      totalEquipmentValue: 0,
+      totalItems: 0,
+      averageValue: 0
+    }
+  };
+}
+
+// Export Property Management Report
+router.get('/property-management/export/excel', authenticate, async (req, res) => {
+  try {
+    const { 
+      reportType = 'income-expenses',
+      propertyId, 
+      year,
+      ownerId
+    } = req.query;
+
+    let data = {};
+
+    switch (reportType) {
+      case 'income-expenses':
+        data = await generateIncomeExpensesReport(propertyId, year, 1, 10000);
+        break;
+      case 'occupancy-by-property':
+        data = await generateOccupancyByPropertyReport(propertyId, year, 1, 10000);
+        break;
+      case 'occupancy-by-owner':
+        data = await generateOccupancyByOwnerReport(ownerId, year, 1, 10000);
+        break;
+      default:
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid report type' 
+        });
+    }
+
+    // Set headers for Excel download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="property-management-${reportType}-${new Date().toISOString().split('T')[0]}.xlsx"`);
+
+    // For now, return JSON (you can implement actual Excel generation later)
+    res.json({
+      success: true,
+      message: 'Excel export functionality will be implemented',
+      data
+    });
+
+  } catch (error) {
+    console.error('Excel export error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to export property management report',
+      error: error.message 
+    });
+  }
+});
+
 export default router;
