@@ -183,6 +183,17 @@ const ReportsPage = () => {
                 <FileText className="w-4 h-4 mr-3" />
                 Due Rent Report
               </button>
+              <button
+                onClick={() => setActiveReport('uncollected-rent')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
+                  activeReport === 'uncollected-rent'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <FileText className="w-4 h-4 mr-3" />
+                Uncollected Rent Report
+              </button>
               {/* Add more report types here */}
             </nav>
           </div>
@@ -209,44 +220,93 @@ const ReportsPage = () => {
                   {/* Property Filter */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Property
+                      Property *
                     </label>
                     <input
                       type="text"
                       value={filters.propertyId}
                       onChange={(e) => handleFilterChange('propertyId', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Property ID"
+                      placeholder="Select Property"
                     />
                   </div>
 
-                  {/* Unit Filter */}
+                  {/* Year Filter */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Unit
+                      Year *
                     </label>
-                    <input
-                      type="text"
-                      value={filters.unitId}
-                      onChange={(e) => handleFilterChange('unitId', e.target.value)}
+                    <select
+                      value={filters.year}
+                      onChange={(e) => handleFilterChange('year', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Unit ID"
-                    />
+                    >
+                      <option value="">Choose Year</option>
+                      <option value="2024">2024</option>
+                      <option value="2025">2025</option>
+                      <option value="2026">2026</option>
+                    </select>
                   </div>
 
-                  {/* Tenant Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tenant
-                    </label>
-                    <input
-                      type="text"
-                      value={filters.tenantId}
-                      onChange={(e) => handleFilterChange('tenantId', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Tenant ID"
-                    />
-                  </div>
+                  {/* Month Filter (for uncollected rent report) */}
+                  {activeReport === 'uncollected-rent' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Month
+                      </label>
+                      <select
+                        value={filters.month}
+                        onChange={(e) => handleFilterChange('month', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">All Months</option>
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Unit Filter (for due rent report) */}
+                  {activeReport === 'due-rent' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Unit
+                      </label>
+                      <input
+                        type="text"
+                        value={filters.unitId}
+                        onChange={(e) => handleFilterChange('unitId', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Unit ID"
+                      />
+                    </div>
+                  )}
+
+                  {/* Tenant Filter (for due rent report) */}
+                  {activeReport === 'due-rent' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tenant
+                      </label>
+                      <input
+                        type="text"
+                        value={filters.tenantId}
+                        onChange={(e) => handleFilterChange('tenantId', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Tenant ID"
+                      />
+                    </div>
+                  )}
 
                   {/* Status Filter */}
                   <div>
@@ -266,59 +326,67 @@ const ReportsPage = () => {
                     </select>
                   </div>
 
-                  {/* Due Date From */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Due Date From
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.dueDateFrom}
-                      onChange={(e) => handleFilterChange('dueDateFrom', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
+                  {/* Due Date From (for due rent report) */}
+                  {activeReport === 'due-rent' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Due Date From
+                      </label>
+                      <input
+                        type="date"
+                        value={filters.dueDateFrom}
+                        onChange={(e) => handleFilterChange('dueDateFrom', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  )}
 
-                  {/* Due Date To */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Due Date To
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.dueDateTo}
-                      onChange={(e) => handleFilterChange('dueDateTo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
+                  {/* Due Date To (for due rent report) */}
+                  {activeReport === 'due-rent' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Due Date To
+                      </label>
+                      <input
+                        type="date"
+                        value={filters.dueDateTo}
+                        onChange={(e) => handleFilterChange('dueDateTo', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  )}
 
-                  {/* Amount From */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Amount From
-                    </label>
-                    <input
-                      type="number"
-                      value={filters.amountFrom}
-                      onChange={(e) => handleFilterChange('amountFrom', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="0.00"
-                    />
-                  </div>
+                  {/* Amount From (for due rent report) */}
+                  {activeReport === 'due-rent' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Amount From
+                      </label>
+                      <input
+                        type="number"
+                        value={filters.amountFrom}
+                        onChange={(e) => handleFilterChange('amountFrom', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  )}
 
-                  {/* Amount To */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Amount To
-                    </label>
-                    <input
-                      type="number"
-                      value={filters.amountTo}
-                      onChange={(e) => handleFilterChange('amountTo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="0.00"
-                    />
-                  </div>
+                  {/* Amount To (for due rent report) */}
+                  {activeReport === 'due-rent' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Amount To
+                      </label>
+                      <input
+                        type="number"
+                        value={filters.amountTo}
+                        onChange={(e) => handleFilterChange('amountTo', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  )}
 
                   {/* Sort By */}
                   <div>
@@ -444,7 +512,9 @@ const ReportsPage = () => {
           {/* Data Table */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="p-4 border-b">
-              <h3 className="text-lg font-medium text-gray-900">Due Rent Report</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                {activeReport === 'due-rent' ? 'Due Rent Report' : 'Uncollected Rent Report'}
+              </h3>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -471,6 +541,11 @@ const ReportsPage = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Description
                     </th>
+                    {activeReport === 'uncollected-rent' && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Days Overdue
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -504,6 +579,17 @@ const ReportsPage = () => {
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {payment.description}
                       </td>
+                      {activeReport === 'uncollected-rent' && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {payment.daysOverdue > 0 ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              {payment.daysOverdue} days
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">-</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
