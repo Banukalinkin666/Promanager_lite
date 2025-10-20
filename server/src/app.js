@@ -56,6 +56,10 @@ app.use((err, _req, res, _next) => {
 // Start cron jobs (if enabled)
 startInvoiceCron();
 
-export default app;
+// Start server
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 
