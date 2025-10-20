@@ -66,6 +66,35 @@ app.get('/api/debug/users', async (_req, res) => {
   }
 });
 
+// Create a simple test user
+app.get('/api/create-test-user', async (_req, res) => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    
+    // Clear existing users
+    await User.deleteMany({});
+    
+    // Create a simple test admin user
+    const testUser = await User.create({
+      name: 'Test Admin',
+      email: 'admin@test.com',
+      passwordHash: await User.hashPassword('password123'),
+      role: 'ADMIN',
+    });
+    
+    res.json({ 
+      message: 'Test user created successfully',
+      user: {
+        email: testUser.email,
+        role: testUser.role,
+        name: testUser.name
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/tenants', tenantRoutes);
