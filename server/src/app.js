@@ -55,6 +55,17 @@ app.get('/api/seed', async (_req, res) => {
   }
 });
 
+// Debug endpoint to check users
+app.get('/api/debug/users', async (_req, res) => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    const users = await User.find({}, 'email role name').lean();
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/tenants', tenantRoutes);
