@@ -717,25 +717,31 @@ router.get('/property-management', authenticate, async (req, res) => {
       reportType = 'income-expenses',
       propertyId, 
       year,
-      ownerId,
       page = 1,
       limit = 50
     } = req.query;
 
-    // Simple response for now to avoid deployment issues
+    let data = {};
+
+    switch (reportType) {
+      case 'income-expenses':
+        data = await generateIncomeExpensesReport(propertyId, year, page, limit);
+        break;
+      case 'occupancy-by-property':
+        data = await generateOccupancyByPropertyReport(propertyId, year, page, limit);
+        break;
+      default:
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid report type. Only income-expenses and occupancy-by-property are supported.' 
+        });
+    }
+
     res.json({
       success: true,
       data: {
         reportType,
-        message: 'Property Management Report - Coming Soon',
-        filters: { propertyId, year, ownerId },
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: 1,
-          totalCount: 0,
-          hasNext: false,
-          hasPrev: false
-        }
+        ...data
       }
     });
 
@@ -917,122 +923,6 @@ async function generateOccupancyByPropertyReport(propertyId, year, page, limit) 
   };
 }
 
-// Occupancy Report By Owner
-async function generateOccupancyByOwnerReport(ownerId, year, page, limit) {
-  const filter = {};
-  
-  if (ownerId) filter.owner = ownerId;
-
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-
-  // Get properties owned by the owner
-  const properties = await Property.find(filter)
-    .populate('owner', 'name email')
-    .sort({ title: 1 })
-    .skip(skip)
-    .limit(parseInt(limit));
-
-  const totalCount = await Property.countDocuments(filter);
-
-  // Calculate owner statistics
-  const ownerStats = await Property.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: '$owner',
-        totalProperties: { $sum: 1 },
-        totalUnits: { $sum: { $size: '$units' } },
-        occupiedUnits: {
-          $sum: {
-            $size: {
-              $filter: {
-                input: '$units',
-                cond: { $eq: ['$$this.status', 'OCCUPIED'] }
-              }
-            }
-          }
-        },
-        vacantUnits: {
-          $sum: {
-            $size: {
-              $filter: {
-                input: '$units',
-                cond: { $eq: ['$$this.status', 'AVAILABLE'] }
-              }
-            }
-          }
-        }
-      }
-    }
-  ]);
-
-  return {
-    properties: properties.map(property => ({
-      id: property._id,
-      title: property.title,
-      address: property.address,
-      totalUnits: property.units.length,
-      occupiedUnits: property.units.filter(unit => unit.status === 'OCCUPIED').length,
-      vacantUnits: property.units.filter(unit => unit.status === 'AVAILABLE').length,
-      maintenanceUnits: property.units.filter(unit => unit.status === 'MAINTENANCE').length
-    })),
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(totalCount / parseInt(limit)),
-      totalCount,
-      hasNext: skip + properties.length < totalCount,
-      hasPrev: parseInt(page) > 1
-    },
-    ownerStats: ownerStats[0] || {
-      totalProperties: 0,
-      totalUnits: 0,
-      occupiedUnits: 0,
-      vacantUnits: 0
-    }
-  };
-}
-
-// Maintenance Details Report
-async function generateMaintenanceDetailsReport(propertyId, year, page, limit) {
-  // This would typically query a maintenance/repairs collection
-  // For now, we'll return a placeholder structure
-  return {
-    maintenanceRecords: [],
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: 0,
-      totalCount: 0,
-      hasNext: false,
-      hasPrev: false
-    },
-    summary: {
-      totalMaintenanceCost: 0,
-      totalRecords: 0,
-      averageCost: 0
-    }
-  };
-}
-
-// Equipment Details Report
-async function generateEquipmentDetailsReport(propertyId, year, page, limit) {
-  // This would typically query an equipment/inventory collection
-  // For now, we'll return a placeholder structure
-  return {
-    equipmentRecords: [],
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: 0,
-      totalCount: 0,
-      hasNext: false,
-      hasPrev: false
-    },
-    summary: {
-      totalEquipmentValue: 0,
-      totalItems: 0,
-      averageValue: 0
-    }
-  };
-}
 
 // Export Property Management Report
 router.get('/property-management/export/excel', authenticate, async (req, res) => {
@@ -1040,8 +930,7 @@ router.get('/property-management/export/excel', authenticate, async (req, res) =
     const { 
       reportType = 'income-expenses',
       propertyId, 
-      year,
-      ownerId
+      year
     } = req.query;
 
     let data = {};
@@ -1053,13 +942,10 @@ router.get('/property-management/export/excel', authenticate, async (req, res) =
       case 'occupancy-by-property':
         data = await generateOccupancyByPropertyReport(propertyId, year, 1, 10000);
         break;
-      case 'occupancy-by-owner':
-        data = await generateOccupancyByOwnerReport(ownerId, year, 1, 10000);
-        break;
       default:
         return res.status(400).json({ 
           success: false, 
-          message: 'Invalid report type' 
+          message: 'Invalid report type. Only income-expenses and occupancy-by-property are supported.' 
         });
     }
 
