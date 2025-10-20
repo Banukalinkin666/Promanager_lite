@@ -40,7 +40,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Seeding endpoint for production
-app.post('/api/seed', async (_req, res) => {
+app.get('/api/seed', async (_req, res) => {
   try {
     const { seedProduction } = await import('./seed/seed-production.js');
     await seedProduction();
