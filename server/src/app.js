@@ -23,7 +23,11 @@ const app = express();
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 app.use(cors({ 
-  origin: process.env.CORS_ORIGIN || process.env.CLIENT_URL || true, 
+  origin: [
+    process.env.CORS_ORIGIN || process.env.CLIENT_URL,
+    'https://spm-frontend-gvcu.onrender.com',
+    'https://spm-frontend.onrender.com'
+  ].filter(Boolean),
   credentials: true 
 }));
 app.use(express.json({ limit: '10mb' }));
