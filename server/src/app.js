@@ -39,6 +39,18 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'Smart Property Manager API' });
 });
 
+// Seeding endpoint for production
+app.post('/api/seed', async (_req, res) => {
+  try {
+    const { seedProduction } = await import('./seed/seed-production.js');
+    await seedProduction();
+    res.json({ message: 'Database seeded successfully' });
+  } catch (error) {
+    console.error('Seeding error:', error);
+    res.status(500).json({ message: 'Seeding failed', error: error.message });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/tenants', tenantRoutes);
