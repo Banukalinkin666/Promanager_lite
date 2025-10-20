@@ -3,12 +3,12 @@ import Property from '../models/Property.js';
 import Payment from '../models/Payment.js';
 import User from '../models/User.js';
 import Lease from '../models/Lease.js';
-import { auth } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
 // Due Rent Report with filters
-router.get('/due-rent', auth, async (req, res) => {
+router.get('/due-rent', authenticate, async (req, res) => {
   try {
     const { 
       propertyId, 
@@ -182,7 +182,7 @@ router.get('/due-rent', auth, async (req, res) => {
 });
 
 // Export Due Rent Report as Excel
-router.get('/due-rent/export/excel', auth, async (req, res) => {
+router.get('/due-rent/export/excel', authenticate, async (req, res) => {
   try {
     const { 
       propertyId, 
@@ -262,7 +262,7 @@ router.get('/due-rent/export/excel', auth, async (req, res) => {
 });
 
 // Export Due Rent Report as PDF
-router.get('/due-rent/export/pdf', auth, async (req, res) => {
+router.get('/due-rent/export/pdf', authenticate, async (req, res) => {
   try {
     const { 
       propertyId, 
