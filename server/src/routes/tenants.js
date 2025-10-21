@@ -153,18 +153,118 @@ router.delete('/:id', authenticate, authorize('OWNER', 'ADMIN'), async (req, res
     const tenant = await User.findOne({ _id: req.params.id, role: 'TENANT' });
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
 
-    // Check if tenant is currently occupying any units
+    // Import required models
     const Property = (await import('../models/Property.js')).default;
+    const Payment = (await import('../models/Payment.js')).default;
+    const Lease = (await import('../models/Lease.js')).default;
+    const Invoice = (await import('../models/Invoice.js')).default;
+
+    // Check if tenant is currently occupying any units
     const propertiesWithTenant = await Property.find({ 'units.tenant': req.params.id });
     
     if (propertiesWithTenant.length > 0) {
+      const unitsList = propertiesWithTenant.flatMap(prop => 
+        prop.units
+          .filter(u => u.tenant && u.tenant.toString() === req.params.id)
+          .map(u => `${prop.name} - ${u.unitNumber}`)
+      ).join(', ');
+
       return res.status(400).json({ 
-        message: 'Cannot delete tenant who is currently occupying units. Please move them out first.' 
+        message: `Cannot delete tenant. ${tenant.firstName} ${tenant.lastName} is currently occupying the following unit(s): ${unitsList}. Please end the lease and move them out first.`,
+        reason: 'ACTIVE_OCCUPANCY',
+        details: {
+          occupiedUnits: unitsList,
+          propertyCount: propertiesWithTenant.length
+        }
       });
     }
 
+    // Check if tenant has any active or past leases
+    const leases = await Lease.find({ tenant: req.params.id });
+    
+    if (leases.length > 0) {
+      const activeLeases = leases.filter(l => l.status === 'ACTIVE');
+      const completedLeases = leases.filter(l => l.status === 'COMPLETED');
+      const totalLeases = leases.length;
+
+      if (activeLeases.length > 0) {
+        return res.status(400).json({ 
+          message: `Cannot delete tenant. ${tenant.firstName} ${tenant.lastName} has ${activeLeases.length} active lease(s) in the system. Please end all leases before deletion.`,
+          reason: 'ACTIVE_LEASES',
+          details: {
+            activeLeases: activeLeases.length,
+            completedLeases: completedLeases.length,
+            totalLeases: totalLeases
+          }
+        });
+      }
+
+      return res.status(400).json({ 
+        message: `Cannot delete tenant. ${tenant.firstName} ${tenant.lastName} has transaction history with ${totalLeases} lease record(s). Deletion is not allowed to maintain system integrity and historical records.`,
+        reason: 'LEASE_HISTORY',
+        details: {
+          completedLeases: completedLeases.length,
+          totalLeases: totalLeases
+        }
+      });
+    }
+
+    // Check if tenant has any payment records
+    const payments = await Payment.find({ tenant: req.params.id });
+    
+    if (payments.length > 0) {
+      const paidPayments = payments.filter(p => p.status === 'PAID' || p.status === 'SUCCEEDED');
+      const pendingPayments = payments.filter(p => p.status === 'PENDING' || p.status === 'DUE');
+      const totalPayments = payments.length;
+
+      if (pendingPayments.length > 0) {
+        return res.status(400).json({ 
+          message: `Cannot delete tenant. ${tenant.firstName} ${tenant.lastName} has ${pendingPayments.length} pending payment(s) totaling $${pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0).toFixed(2)}. Please clear all pending payments before deletion.`,
+          reason: 'PENDING_PAYMENTS',
+          details: {
+            pendingPayments: pendingPayments.length,
+            paidPayments: paidPayments.length,
+            totalPayments: totalPayments,
+            pendingAmount: pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+          }
+        });
+      }
+
+      return res.status(400).json({ 
+        message: `Cannot delete tenant. ${tenant.firstName} ${tenant.lastName} has ${totalPayments} payment record(s) in the system. Deletion is not allowed to maintain financial records and system integrity.`,
+        reason: 'PAYMENT_HISTORY',
+        details: {
+          paidPayments: paidPayments.length,
+          totalPayments: totalPayments,
+          totalAmount: payments.reduce((sum, p) => sum + (p.amount || 0), 0)
+        }
+      });
+    }
+
+    // Check if tenant has any invoices
+    const invoices = await Invoice.find({ tenant: req.params.id });
+    
+    if (invoices.length > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete tenant. ${tenant.firstName} ${tenant.lastName} has ${invoices.length} invoice record(s) in the system. Deletion is not allowed to maintain financial records and audit trail.`,
+        reason: 'INVOICE_HISTORY',
+        details: {
+          totalInvoices: invoices.length
+        }
+      });
+    }
+
+    // If no transactions found, allow deletion
     await User.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Tenant deleted successfully' });
+    res.json({ 
+      message: `Tenant ${tenant.firstName} ${tenant.lastName} deleted successfully.`,
+      deletedTenant: {
+        id: tenant._id,
+        name: `${tenant.firstName} ${tenant.lastName}`,
+        email: tenant.email,
+        nic: tenant.nic
+      }
+    });
   } catch (error) {
     console.error('Error deleting tenant:', error);
     res.status(500).json({ message: 'Error deleting tenant', error: error.message });
