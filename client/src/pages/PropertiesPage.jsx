@@ -116,6 +116,7 @@ export default function PropertiesPage() {
   const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', data: null });
+  const [uploading, setUploading] = useState(false);
   const [unitForm, setUnitForm] = useState({
     unit: '',
     type: 'APARTMENT',
@@ -178,23 +179,58 @@ export default function PropertiesPage() {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
+    // Validate file types
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const invalidFiles = files.filter(file => !validTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+      toast.error('Please upload only image files (JPG, PNG, GIF, WEBP)');
+      return;
+    }
+
+    // Validate file sizes (5MB max per file)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    
+    if (oversizedFiles.length > 0) {
+      toast.error('Each image must be less than 5MB');
+      return;
+    }
+
+    setUploading(true);
     try {
-      const formData = new FormData();
+      const uploadFormData = new FormData();
       files.forEach(file => {
-        formData.append('images', file);
+        uploadFormData.append('images', file);
       });
 
-      const response = await api.post('/properties/upload-images', formData, {
+      toast.info(`Uploading ${files.length} image(s)...`);
+
+      const response = await api.post('/properties/upload-images', uploadFormData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
       const imageUrls = response.data.imageUrls;
-      setFormData(prev => ({ ...prev, images: [...prev.images, ...imageUrls] }));
+      
+      if (imageUrls && imageUrls.length > 0) {
+        setFormData(prev => ({ 
+          ...prev, 
+          images: [...prev.images, ...imageUrls] 
+        }));
+        toast.success(`${imageUrls.length} image(s) uploaded successfully!`);
+      } else {
+        toast.error('No images were uploaded. Please try again.');
+      }
     } catch (error) {
       console.error('Error uploading images:', error);
-      toast.error('Error uploading images. Please try again.');
+      const errorMessage = error.response?.data?.message || 'Error uploading images. Please try again.';
+      toast.error(errorMessage);
+    } finally {
+      setUploading(false);
+      // Reset the file input
+      e.target.value = '';
     }
   };
 
@@ -1221,32 +1257,54 @@ export default function PropertiesPage() {
                     multiple
                     accept="image/*"
                     onChange={handleImageUpload}
-                    className="w-full p-2 border rounded"
+                    disabled={uploading}
+                    className="w-full p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
                   />
+                  {uploading && (
+                    <div className="mt-2 flex items-center gap-2 text-blue-600 text-sm">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span>Uploading images...</span>
+                    </div>
+                  )}
                 </div>
                 {formData.images.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                     {formData.images.map((image, index) => (
-                      <div key={index} className="relative">
+                      <div key={index} className="relative group">
                         <img 
                           src={getImageUrl(image)} 
                           alt={`Property ${index + 1}`}
-                          className="w-full h-32 object-cover rounded border"
-                          onError={(e) => {
-                            console.error('Form image load error:', e.target.src);
-                            e.target.style.display = 'none';
+                          className="w-full h-32 object-cover rounded border border-gray-300 dark:border-gray-600"
+                          onLoad={(e) => {
+                            e.target.style.opacity = '1';
                           }}
+                          onError={(e) => {
+                            console.error('Image failed to load:', image);
+                            console.error('Attempted URL:', getImageUrl(image));
+                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="128" viewBox="0 0 200 128"%3E%3Crect fill="%23f0f0f0" width="200" height="128"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="monospace" font-size="14" fill="%23999"%3EImage not found%3C/text%3E%3C/svg%3E';
+                            e.target.style.opacity = '1';
+                          }}
+                          style={{ opacity: 0, transition: 'opacity 0.3s' }}
                         />
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                          className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove image"
                         >
                           ×
                         </button>
+                        <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                          {index + 1}
+                        </div>
                       </div>
                     ))}
                   </div>
+                )}
+                {formData.images.length === 0 && !uploading && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    No images uploaded. You can upload up to 5 images (max 5MB each).
+                  </p>
                 )}
               </div>
             </div>
