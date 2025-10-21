@@ -15,6 +15,11 @@ import RentScheduleModal from '../components/RentScheduleModal.jsx';
 import ConfirmationModal from '../components/ConfirmationModal.jsx';
 import EditLeaseModal from '../components/EditLeaseModal.jsx';
 
+// Get API base URL for images
+const getApiBaseUrl = () => {
+  return import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:4000';
+};
+
 // Edit Lease Button Component
 const EditLeaseButton = ({ unit, onEdit }) => {
   const [hasRent, setHasRent] = useState(null);
@@ -948,12 +953,12 @@ export default function PropertiesPage() {
               <h3 className="font-semibold mb-3">Property Image</h3>
               {selectedProperty.photos && selectedProperty.photos.length > 0 ? (
                 <img 
-                  src={`http://localhost:4000${selectedProperty.photos[0]}`}
+                  src={`${getApiBaseUrl()}${selectedProperty.photos[0]}`}
                   alt={selectedProperty.title}
                   className="w-full h-48 object-cover rounded"
                   onError={(e) => {
                     console.log('Image failed to load:', selectedProperty.photos[0]);
-                    console.log('Full URL attempted:', `http://localhost:4000${selectedProperty.photos[0]}`);
+                    console.log('Full URL attempted:', `${getApiBaseUrl()}${selectedProperty.photos[0]}`);
                     e.target.style.display = 'none';
                     e.target.nextSibling.style.display = 'flex';
                   }}
@@ -1209,7 +1214,7 @@ export default function PropertiesPage() {
                     {formData.images.map((image, index) => (
                       <div key={index} className="relative">
                         <img 
-                          src={`http://localhost:4000${image}`} 
+                          src={`${getApiBaseUrl()}${image}`} 
                           alt={`Property ${index + 1}`}
                           className="w-full h-32 object-cover rounded border"
                           onError={(e) => {
@@ -1351,7 +1356,7 @@ export default function PropertiesPage() {
               <div className="w-32 h-32 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                 {p.photos && p.photos.length > 0 ? (
                   <img 
-                    src={`http://localhost:4000${p.photos[0]}`}
+                    src={`${getApiBaseUrl()}${p.photos[0]}`}
                     alt={p.title}
                     className="w-full h-full object-cover"
                     onError={(e) => {
