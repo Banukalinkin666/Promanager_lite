@@ -2,8 +2,11 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
+
+// Use Cloudinary v1 API
+const cloudinaryV1 = cloudinary.v2;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +18,7 @@ let storage;
 
 if (USE_CLOUD_STORAGE && process.env.CLOUDINARY_CLOUD_NAME) {
   // Configure Cloudinary
-  cloudinary.config({
+  cloudinaryV1.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
@@ -23,7 +26,7 @@ if (USE_CLOUD_STORAGE && process.env.CLOUDINARY_CLOUD_NAME) {
 
   // Use Cloudinary storage
   storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
+    cloudinary: cloudinaryV1,
     params: {
       folder: 'spm/properties',
       allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
