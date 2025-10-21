@@ -395,6 +395,89 @@ router.put('/:userId/reset-password', authenticate, authorize('ADMIN'), async (r
   }
 });
 
+// Block/Blacklist user (ADMIN only)
+router.put('/:userId/block', authenticate, authorize('ADMIN'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { blockReason } = req.body;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Prevent admin from blocking themselves
+    if (userId === req.user.id) {
+      return res.status(400).json({ message: 'Cannot block your own account' });
+    }
+    
+    // Set user as blacklisted and inactive
+    user.status = 'BLACKLISTED';
+    user.isActive = false;
+    user.blockReason = blockReason || 'No reason provided';
+    user.blockedAt = new Date();
+    user.blockedBy = req.user.id;
+    
+    await user.save();
+    
+    res.json({ 
+      message: `User ${user.firstName || ''} ${user.lastName || ''} has been blocked successfully`,
+      status: user.status,
+      isActive: user.isActive,
+      user: {
+        id: user._id,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        status: user.status,
+        blockReason: user.blockReason
+      }
+    });
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    res.status(500).json({ message: 'Error blocking user', error: error.message });
+  }
+});
+
+// Unblock user (ADMIN only)
+router.put('/:userId/unblock', authenticate, authorize('ADMIN'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Restore user to active status
+    user.status = 'ACTIVE';
+    user.isActive = true;
+    user.blockReason = undefined;
+    user.blockedAt = undefined;
+    user.blockedBy = undefined;
+    
+    await user.save();
+    
+    res.json({ 
+      message: `User ${user.firstName || ''} ${user.lastName || ''} has been unblocked successfully`,
+      status: user.status,
+      isActive: user.isActive,
+      user: {
+        id: user._id,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        status: user.status
+      }
+    });
+  } catch (error) {
+    console.error('Error unblocking user:', error);
+    res.status(500).json({ message: 'Error unblocking user', error: error.message });
+  }
+});
+
 // Toggle user active status (ADMIN only)
 router.put('/:userId/toggle-status', authenticate, authorize('ADMIN'), async (req, res) => {
   try {

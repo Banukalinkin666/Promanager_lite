@@ -135,21 +135,44 @@ export default function SettingsPage() {
     
     try {
       setSaving(true);
-      // Update user status to blocked
-      await api.put(`/tenants/${selectedUser._id}/credentials`, {
-        ...editForm,
-        status: 'BLOCKED',
+      // Block user using dedicated block endpoint
+      const response = await api.put(`/tenants/${selectedUser._id}/block`, {
         blockReason: blockReason
       });
-      showToastMessage('User blocked successfully', 'success');
+      showToastMessage(response.data.message, 'success');
       setShowBlockModal(false);
       setBlockReason('');
       loadUsers();
+      
+      // Dispatch event to notify other pages
+      window.dispatchEvent(new CustomEvent('userStatusUpdated', { 
+        detail: { userId: selectedUser._id, newStatus: 'BLACKLISTED' } 
+      }));
     } catch (error) {
       console.error('Error blocking user:', error);
-      showToastMessage('Error blocking user', 'error');
+      showToastMessage(error.response?.data?.message || 'Error blocking user', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+  
+  const handleUnblockUser = async (userItem) => {
+    if (!window.confirm(`Are you sure you want to unblock ${userItem.firstName || ''} ${userItem.lastName || ''}?`)) {
+      return;
+    }
+    
+    try {
+      const response = await api.put(`/tenants/${userItem._id}/unblock`);
+      showToastMessage(response.data.message, 'success');
+      loadUsers();
+      
+      // Dispatch event to notify other pages
+      window.dispatchEvent(new CustomEvent('userStatusUpdated', { 
+        detail: { userId: userItem._id, newStatus: 'ACTIVE' } 
+      }));
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      showToastMessage(error.response?.data?.message || 'Error unblocking user', 'error');
     }
   };
 
@@ -222,7 +245,7 @@ export default function SettingsPage() {
   };
 
   const getStatusColor = (user) => {
-    if (user.status === 'BLOCKED') {
+    if (user.status === 'BLACKLISTED') {
       return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
     }
     if (user.isActive === false) {
@@ -232,7 +255,7 @@ export default function SettingsPage() {
   };
 
   const getStatusIcon = (user) => {
-    if (user.status === 'BLOCKED') {
+    if (user.status === 'BLACKLISTED') {
       return <UserX size={14} />;
     }
     if (user.isActive === false) {
@@ -242,7 +265,7 @@ export default function SettingsPage() {
   };
 
   const getStatusText = (user) => {
-    if (user.status === 'BLOCKED') {
+    if (user.status === 'BLACKLISTED') {
       return 'Blocked';
     }
     if (user.isActive === false) {
@@ -412,7 +435,7 @@ export default function SettingsPage() {
                             </span>
                             
                             {/* Status Toggle */}
-                            {userItem.status !== 'BLOCKED' && (
+                            {userItem.status !== 'BLACKLISTED' && (
                               <button
                                 onClick={() => handleToggleStatus(userItem)}
                                 disabled={userItem._id === user.id}
@@ -428,15 +451,25 @@ export default function SettingsPage() {
                               </button>
                             )}
                             
-                            {/* Block User Button */}
-                            {userItem.status !== 'BLOCKED' && userItem._id !== user.id && (
-                              <button
-                                onClick={() => handleBlockUser(userItem)}
-                                className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
-                              >
-                                <AlertTriangle size={14} />
-                                Block
-                              </button>
+                            {/* Block/Unblock User Button */}
+                            {userItem._id !== user.id && (
+                              userItem.status === 'BLACKLISTED' ? (
+                                <button
+                                  onClick={() => handleUnblockUser(userItem)}
+                                  className="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-1"
+                                >
+                                  <UserCheck size={14} />
+                                  Unblock
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleBlockUser(userItem)}
+                                  className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
+                                >
+                                  <AlertTriangle size={14} />
+                                  Block
+                                </button>
+                              )
                             )}
                         
                         {/* Edit Button */}

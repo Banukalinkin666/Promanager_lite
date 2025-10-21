@@ -49,7 +49,12 @@ const UserSchema = new mongoose.Schema(
     // Additional notes
     notes: { type: String },
     status: { type: String, enum: ['ACTIVE', 'INACTIVE', 'BLACKLISTED'], default: 'ACTIVE' },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    
+    // Block/Blacklist information
+    blockReason: { type: String },
+    blockedAt: { type: Date },
+    blockedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   },
   { timestamps: true }
 );
