@@ -410,12 +410,26 @@ router.put('/:userId/toggle-status', authenticate, authorize('ADMIN'), async (re
       return res.status(400).json({ message: 'Cannot deactivate your own account' });
     }
     
+    // Toggle isActive status
     user.isActive = !user.isActive;
+    
+    // Update status field to match
+    user.status = user.isActive ? 'ACTIVE' : 'INACTIVE';
+    
     await user.save();
     
     res.json({ 
       message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
-      isActive: user.isActive 
+      isActive: user.isActive,
+      status: user.status,
+      user: {
+        id: user._id,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        status: user.status
+      }
     });
   } catch (error) {
     console.error('Error toggling user status:', error);
