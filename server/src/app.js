@@ -157,6 +157,38 @@ app.get('/api/count-users', async (_req, res) => {
   }
 });
 
+// Remove all tenants (keep only admin)
+app.get('/api/remove-all-tenants', async (_req, res) => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    
+    // Delete all tenants
+    const result = await User.deleteMany({ role: 'TENANT' });
+    
+    // Count remaining users
+    const remainingUsers = await User.find({}).select('email role firstName lastName');
+    
+    res.json({
+      message: `Successfully removed ${result.deletedCount} tenant(s)`,
+      deletedCount: result.deletedCount,
+      remainingUsers: {
+        total: remainingUsers.length,
+        admins: remainingUsers.filter(u => u.role === 'ADMIN').length,
+        tenants: remainingUsers.filter(u => u.role === 'TENANT').length,
+        owners: remainingUsers.filter(u => u.role === 'OWNER').length
+      },
+      users: remainingUsers.map(u => ({
+        name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+        email: u.email,
+        role: u.role
+      }))
+    });
+  } catch (error) {
+    console.error('Error removing tenants:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Create QA test tenants
 app.get('/api/create-qa-tenants', async (_req, res) => {
   try {
