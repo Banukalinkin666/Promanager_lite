@@ -114,6 +114,11 @@ export default function SettingsPage() {
       const response = await api.put(`/tenants/${userItem._id}/toggle-status`);
       showToastMessage(response.data.message, 'success');
       loadUsers();
+      
+      // Dispatch event to notify other pages (like Tenant Management)
+      window.dispatchEvent(new CustomEvent('userStatusUpdated', { 
+        detail: { userId: userItem._id, newStatus: response.data.status } 
+      }));
     } catch (error) {
       console.error('Error toggling user status:', error);
       showToastMessage('Error updating user status', 'error');

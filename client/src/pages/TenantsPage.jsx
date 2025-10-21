@@ -67,7 +67,20 @@ export default function TenantsPage() {
     }
   };
 
-  useEffect(() => { loadTenants(); }, []);
+  useEffect(() => { 
+    loadTenants(); 
+    
+    // Listen for user status updates from User Management
+    const handleUserStatusUpdate = () => {
+      loadTenants();
+    };
+    
+    window.addEventListener('userStatusUpdated', handleUserStatusUpdate);
+    
+    return () => {
+      window.removeEventListener('userStatusUpdated', handleUserStatusUpdate);
+    };
+  }, []);
 
   const resetForm = () => {
     setFormData({
