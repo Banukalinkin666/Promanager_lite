@@ -381,14 +381,21 @@ router.put('/:userId/reset-password', authenticate, authorize('ADMIN'), async (r
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Hash the new password
-    const bcrypt = await import('bcryptjs');
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // Hash the new password using User model method
+    const hashedPassword = await User.hashPassword(newPassword);
     
     user.passwordHash = hashedPassword;
     await user.save();
     
-    res.json({ message: 'Password reset successfully' });
+    res.json({ 
+      message: 'Password reset successfully',
+      user: {
+        id: user._id,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
     console.error('Error resetting password:', error);
     res.status(500).json({ message: 'Error resetting password', error: error.message });
