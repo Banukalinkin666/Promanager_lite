@@ -14,6 +14,8 @@ import UnitDetailsModal from '../components/UnitDetailsModal.jsx';
 import RentScheduleModal from '../components/RentScheduleModal.jsx';
 import ConfirmationModal from '../components/ConfirmationModal.jsx';
 import EditLeaseModal from '../components/EditLeaseModal.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import { useToast } from '../components/ToastContainer.jsx';
 
 // Get API base URL for images
 const getApiBaseUrl = () => {
@@ -83,6 +85,7 @@ const FEATURES = [
 export default function PropertiesPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [properties, setProperties] = useState([]);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -101,6 +104,7 @@ export default function PropertiesPage() {
   const [selectedUnitForEditLease, setSelectedUnitForEditLease] = useState(null);
   const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', data: null });
   const [unitForm, setUnitForm] = useState({
     unit: '',
     type: 'APARTMENT',
@@ -179,7 +183,7 @@ export default function PropertiesPage() {
       setFormData(prev => ({ ...prev, images: [...prev.images, ...imageUrls] }));
     } catch (error) {
       console.error('Error uploading images:', error);
-      alert('Error uploading images. Please try again.');
+      toast.error('Error uploading images. Please try again.');
     }
   };
 
