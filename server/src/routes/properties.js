@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
-import upload from '../middleware/upload.js';
+import upload, { USE_CLOUD_STORAGE } from '../middleware/cloudUpload.js';
 import Property from '../models/Property.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -29,7 +29,17 @@ router.post('/upload-images', authenticate, authorize('OWNER', 'ADMIN'), (req, r
         return res.status(400).json({ message: 'No images uploaded' });
       }
 
-      const imageUrls = req.files.map(file => `/uploads/properties/${file.filename}`);
+      // Handle URLs differently for cloud vs local storage
+      const imageUrls = req.files.map(file => {
+        if (USE_CLOUD_STORAGE) {
+          // Cloudinary returns full URL in file.path
+          return file.path;
+        } else {
+          // Local storage returns relative path
+          return `/uploads/properties/${file.filename}`;
+        }
+      });
+      
       console.log('Images uploaded successfully:', imageUrls);
       res.json({ imageUrls });
     } catch (error) {
