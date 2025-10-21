@@ -22,6 +22,17 @@ const getApiBaseUrl = () => {
   return import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:4000';
 };
 
+// Get image URL (handles both local and cloud URLs)
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+  // If it's already a full URL (Cloudinary), return as is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  // Otherwise, it's a local path, prepend API base URL
+  return `${getApiBaseUrl()}${imagePath}`;
+};
+
 // Edit Lease Button Component
 const EditLeaseButton = ({ unit, onEdit }) => {
   const [hasRent, setHasRent] = useState(null);
@@ -957,7 +968,7 @@ export default function PropertiesPage() {
               <h3 className="font-semibold mb-3">Property Image</h3>
               {selectedProperty.photos && selectedProperty.photos.length > 0 ? (
                 <img 
-                  src={`${getApiBaseUrl()}${selectedProperty.photos[0]}`}
+                  src={getImageUrl(selectedProperty.photos[0])}
                   alt={selectedProperty.title}
                   className="w-full h-48 object-cover rounded"
                   onError={(e) => {
@@ -1218,7 +1229,7 @@ export default function PropertiesPage() {
                     {formData.images.map((image, index) => (
                       <div key={index} className="relative">
                         <img 
-                          src={`${getApiBaseUrl()}${image}`} 
+                          src={getImageUrl(image)} 
                           alt={`Property ${index + 1}`}
                           className="w-full h-32 object-cover rounded border"
                           onError={(e) => {
@@ -1360,7 +1371,7 @@ export default function PropertiesPage() {
               <div className="w-32 h-32 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                 {p.photos && p.photos.length > 0 ? (
                   <img 
-                    src={`${getApiBaseUrl()}${p.photos[0]}`}
+                    src={getImageUrl(p.photos[0])}
                     alt={p.title}
                     className="w-full h-full object-cover"
                     onError={(e) => {

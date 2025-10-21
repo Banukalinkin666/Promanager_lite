@@ -7,7 +7,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('admin@spm.test');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('password123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -144,17 +144,17 @@ export default function LoginPage() {
               <div className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-gray-700 rounded">
                 <Shield size={12} className="text-red-600" />
                 <span className="text-gray-700 dark:text-gray-300">Admin:</span>
-                <span className="text-gray-600 dark:text-gray-400">admin@spm.test / admin123</span>
+                <span className="text-gray-600 dark:text-gray-400">admin@spm.test / password123</span>
               </div>
               <div className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-gray-700 rounded">
                 <Building2 size={12} className="text-blue-600" />
                 <span className="text-gray-700 dark:text-gray-300">Owner:</span>
-                <span className="text-gray-600 dark:text-gray-400">owner@spm.test / owner123</span>
+                <span className="text-gray-600 dark:text-gray-400">owner@spm.test / password123</span>
               </div>
               <div className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-gray-700 rounded">
                 <Users size={12} className="text-green-600" />
                 <span className="text-gray-700 dark:text-gray-300">Tenant:</span>
-                <span className="text-gray-600 dark:text-gray-400">tenant@spm.test / tenant123</span>
+                <span className="text-gray-600 dark:text-gray-400">tenant@spm.test / password123</span>
               </div>
             </div>
           </div>
