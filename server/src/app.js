@@ -133,6 +133,30 @@ app.get('/api/clear-all-data', async (_req, res) => {
   }
 });
 
+// Count all users by role
+app.get('/api/count-users', async (_req, res) => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    
+    const allUsers = await User.find({}).select('email role firstName lastName');
+    const counts = {
+      total: allUsers.length,
+      admins: allUsers.filter(u => u.role === 'ADMIN').length,
+      tenants: allUsers.filter(u => u.role === 'TENANT').length,
+      owners: allUsers.filter(u => u.role === 'OWNER').length,
+      users: allUsers.map(u => ({
+        name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+        email: u.email,
+        role: u.role
+      }))
+    };
+    
+    res.json(counts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Create QA test tenants
 app.get('/api/create-qa-tenants', async (_req, res) => {
   try {
