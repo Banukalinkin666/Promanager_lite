@@ -11,18 +11,32 @@ const __dirname = path.dirname(__filename);
 const router = Router();
 
 // Upload property images (OWNER, ADMIN)
-router.post('/upload-images', authenticate, authorize('OWNER', 'ADMIN'), upload.array('images', 5), async (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'No images uploaded' });
+router.post('/upload-images', authenticate, authorize('OWNER', 'ADMIN'), (req, res, next) => {
+  upload.array('images', 5)(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File too large. Maximum size is 5MB per file.' });
+      }
+      if (err.message === 'Only image files are allowed!') {
+        return res.status(400).json({ message: 'Only image files are allowed!' });
+      }
+      return res.status(500).json({ message: 'Error uploading images', error: err.message });
     }
+    
+    try {
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'No images uploaded' });
+      }
 
-    const imageUrls = req.files.map(file => `/uploads/properties/${file.filename}`);
-    res.json({ imageUrls });
-  } catch (error) {
-    console.error('Error uploading images:', error);
-    res.status(500).json({ message: 'Error uploading images', error: error.message });
-  }
+      const imageUrls = req.files.map(file => `/uploads/properties/${file.filename}`);
+      console.log('Images uploaded successfully:', imageUrls);
+      res.json({ imageUrls });
+    } catch (error) {
+      console.error('Error processing uploaded images:', error);
+      res.status(500).json({ message: 'Error processing images', error: error.message });
+    }
+  });
 });
 
 // Create property (OWNER, ADMIN)
