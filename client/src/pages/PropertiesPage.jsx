@@ -280,15 +280,32 @@ export default function PropertiesPage() {
     setShowForm(true);
   };
 
-  const deleteProperty = async (propertyId) => {
-    if (window.confirm('Are you sure you want to delete this property?')) {
-      await api.delete(`/properties/${propertyId}`);
-      load();
-      if (selectedProperty && selectedProperty._id === propertyId) {
-        setSelectedProperty(null);
-        navigate('/properties');
+  const deleteProperty = (propertyId) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'delete',
+      title: 'Delete Property',
+      message: 'Are you sure you want to delete this property? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/properties/${propertyId}`);
+          toast.success('Property deleted successfully');
+          load();
+          if (selectedProperty && selectedProperty._id === propertyId) {
+            setSelectedProperty(null);
+            navigate('/properties');
+          }
+        } catch (error) {
+          console.error('Error deleting property:', error);
+          toast.error(error.response?.data?.message || 'Failed to delete property');
+        } finally {
+          setConfirmDialog({ isOpen: false, type: '', data: null });
+        }
+      },
+      onCancel: () => {
+        setConfirmDialog({ isOpen: false, type: '', data: null });
       }
-    }
+    });
   };
 
   const resetUnitForm = () => {
@@ -319,11 +336,28 @@ export default function PropertiesPage() {
     setShowUnitForm(true);
   };
 
-  const deleteUnit = async (unitId) => {
-    if (window.confirm('Are you sure you want to delete this unit?')) {
-      await api.delete(`/properties/${selectedProperty._id}/units/${unitId}`);
-      loadProperty(selectedProperty._id);
-    }
+  const deleteUnit = (unitId) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'delete',
+      title: 'Delete Unit',
+      message: 'Are you sure you want to delete this unit? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/properties/${selectedProperty._id}/units/${unitId}`);
+          toast.success('Unit deleted successfully');
+          loadProperty(selectedProperty._id);
+        } catch (error) {
+          console.error('Error deleting unit:', error);
+          toast.error(error.response?.data?.message || 'Failed to delete unit');
+        } finally {
+          setConfirmDialog({ isOpen: false, type: '', data: null });
+        }
+      },
+      onCancel: () => {
+        setConfirmDialog({ isOpen: false, type: '', data: null });
+      }
+    });
   };
 
   const addUnit = async (e) => {
@@ -391,7 +425,7 @@ export default function PropertiesPage() {
   const handleEditLease = async (unit) => {
     const hasRent = await hasCollectedRent(unit._id);
     if (hasRent) {
-      alert('Cannot edit lease after rent has been collected.');
+      toast.warning('Cannot edit lease after rent has been collected.');
       return;
     }
     setSelectedUnitForEditLease(unit);
@@ -431,10 +465,10 @@ export default function PropertiesPage() {
         }
       }));
       
-      alert('Lease ended successfully. All pending rent payments have been removed.');
+      toast.success('Lease ended successfully. All pending rent payments have been removed.');
     } catch (error) {
       console.error('Error ending lease:', error);
-      alert('Error ending lease. Please try again.');
+      toast.error(error.response?.data?.message || 'Error ending lease. Please try again.');
     }
   };
 

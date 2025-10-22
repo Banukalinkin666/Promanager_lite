@@ -4,17 +4,21 @@ import {
   MapPin, Briefcase, Calendar, FileText, AlertCircle
 } from 'lucide-react';
 import api from '../lib/api.js';
+import { useToast } from '../components/ToastContainer.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'SELF_EMPLOYED', 'STUDENT', 'UNEMPLOYED'];
 const TENANT_STATUS = ['ACTIVE', 'INACTIVE', 'BLACKLISTED'];
 
 export default function TenantsPage() {
+  const toast = useToast();
   const [tenants, setTenants] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', data: null });
 
   const [formData, setFormData] = useState({
     // General Information
@@ -141,10 +145,11 @@ export default function TenantsPage() {
       }
       
       resetForm();
+      toast.success(editingTenant ? 'Tenant updated successfully' : 'Tenant created successfully');
       loadTenants();
     } catch (error) {
       console.error('Error saving tenant:', error);
-      alert('Error saving tenant. Please try again.');
+      toast.error(error.response?.data?.message || 'Error saving tenant. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -174,16 +179,29 @@ export default function TenantsPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (tenantId) => {
-    if (window.confirm('Are you sure you want to delete this tenant?')) {
-      try {
-        await api.delete(`/tenants/${tenantId}`);
-        loadTenants();
-      } catch (error) {
-        console.error('Error deleting tenant:', error);
-        alert('Error deleting tenant. Please try again.');
+  const handleDelete = (tenantId) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'delete',
+      title: 'Delete Tenant',
+      message: 'Are you sure you want to delete this tenant? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/tenants/${tenantId}`);
+          toast.success('Tenant deleted successfully');
+          loadTenants();
+        } catch (error) {
+          console.error('Error deleting tenant:', error);
+          const errorMsg = error.response?.data?.message || 'Error deleting tenant. Please try again.';
+          toast.error(errorMsg);
+        } finally {
+          setConfirmDialog({ isOpen: false, type: '', data: null });
+        }
+      },
+      onCancel: () => {
+        setConfirmDialog({ isOpen: false, type: '', data: null });
       }
-    }
+    });
   };
 
   const handleViewDetails = (tenant) => {
@@ -773,6 +791,16 @@ export default function TenantsPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        type={confirmDialog.type}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={confirmDialog.onCancel}
+      />
     </div>
   );
 }
