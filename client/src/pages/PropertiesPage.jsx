@@ -9,7 +9,7 @@ import {
   Calendar, Clock
 } from 'lucide-react';
 import api from '../lib/api.js';
-import MoveInModal from '../components/MoveInModal.jsx';
+import EnhancedMoveInModal from '../components/EnhancedMoveInModal.jsx';
 import UnitDetailsModal from '../components/UnitDetailsModal.jsx';
 import RentScheduleModal from '../components/RentScheduleModal.jsx';
 import ConfirmationModal from '../components/ConfirmationModal.jsx';
@@ -1123,7 +1123,7 @@ export default function PropertiesPage() {
         </div>
 
         {/* Move-In Modal */}
-        <MoveInModal
+        <EnhancedMoveInModal
           isOpen={showMoveInModal}
           onClose={() => {
             setShowMoveInModal(false);
