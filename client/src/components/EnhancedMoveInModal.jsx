@@ -284,16 +284,8 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
   const validateForm = () => {
     const newErrors = {};
     
-    // Section 1: Property Information
-    if (!formData.propertyName) newErrors.propertyName = 'Property name is required';
-    if (!formData.unitNumber) newErrors.unitNumber = 'Unit number is required';
-    if (!formData.propertyType) newErrors.propertyType = 'Property type is required';
-    if (!formData.location) newErrors.location = 'Location is required';
-    
     // Section 2: Tenant Information
     if (!formData.tenantId) newErrors.tenantId = 'Please select a tenant';
-    if (!formData.tenantName) newErrors.tenantName = 'Tenant name is required';
-    if (!formData.tenantCode) newErrors.tenantCode = 'Tenant code is required';
     if (!formData.contactNumber) newErrors.contactNumber = 'Contact number is required';
     else if (!/^\+?[\d\s-()]+$/.test(formData.contactNumber)) newErrors.contactNumber = 'Invalid phone format';
     if (!formData.nationalId) newErrors.nationalId = 'National ID/Passport is required';
@@ -624,106 +616,67 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
               
               {expandedSections.includes(1) && (
                 <div className="p-4 space-y-4 bg-white dark:bg-gray-800">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                        Property Name <span className="text-red-500">*</span>
-                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">auto-fetched</span>
-                      </label>
-                      <input
-                        type="text"
-                        className={`w-full p-2 rounded border ${errors.propertyName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-                        value={formData.propertyName}
-                        onChange={(e) => handleInputChange('propertyName', e.target.value)}
-                        placeholder="Enter property name"
-                      />
-                      {errors.propertyName && <p className="text-red-500 text-xs mt-1">{errors.propertyName}</p>}
+                  {/* Property Info Card - Read Only */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Property Name</div>
+                        <div className="font-semibold text-gray-900 dark:text-white">{formData.propertyName || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Property Code</div>
+                        <div className="font-semibold text-gray-900 dark:text-white">{formData.propertyCode || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unit Number</div>
+                        <div className="font-semibold text-gray-900 dark:text-white">{formData.unitNumber || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Property Type</div>
+                        <div className="font-semibold text-gray-900 dark:text-white capitalize">
+                          {formData.propertyType ? formData.propertyType.toLowerCase() : 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Monthly Rent</div>
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          ${formData.monthlyRent ? parseFloat(formData.monthlyRent).toLocaleString() : '0'}
+                        </div>
+                      </div>
+                      <div className="md:col-span-2 lg:col-span-3">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Location / Address</div>
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">{formData.location || 'N/A'}</div>
+                      </div>
                     </div>
-                    
+                  </div>
+                  
+                  {/* Move-in/out Dates - Editable */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                     <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                        Property Code <span className="text-red-500">*</span>
-                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">auto-fetched</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
-                        value={formData.propertyCode}
-                        readOnly
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                        Unit Number <span className="text-red-500">*</span>
-                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">auto-fetched</span>
-                      </label>
-                      <input
-                        type="text"
-                        className={`w-full p-2 rounded border ${errors.unitNumber ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-                        value={formData.unitNumber}
-                        onChange={(e) => handleInputChange('unitNumber', e.target.value)}
-                        placeholder="Enter unit number"
-                      />
-                      {errors.unitNumber && <p className="text-red-500 text-xs mt-1">{errors.unitNumber}</p>}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                        Property Type <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        className={`w-full p-2 rounded border ${errors.propertyType ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-                        value={formData.propertyType}
-                        onChange={(e) => handleInputChange('propertyType', e.target.value)}
-                      >
-                        <option value="APARTMENT">Apartment</option>
-                        <option value="VILLA">Villa</option>
-                        <option value="OFFICE">Office</option>
-                        <option value="COMMERCIAL">Commercial</option>
-                        <option value="WAREHOUSE">Warehouse</option>
-                      </select>
-                      {errors.propertyType && <p className="text-red-500 text-xs mt-1">{errors.propertyType}</p>}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <Calendar size={16} />
                         Move-in Date
                       </label>
                       <input
                         type="date"
-                        className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         value={formData.moveInDate}
                         onChange={(e) => handleInputChange('moveInDate', e.target.value)}
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                        Move-out Date (Optional)
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <Calendar size={16} />
+                        Move-out Date <span className="text-xs text-gray-500">(Optional)</span>
                       </label>
                       <input
                         type="date"
-                        className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         value={formData.moveOutDate}
                         onChange={(e) => handleInputChange('moveOutDate', e.target.value)}
                       />
                     </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                      Location / Address <span className="text-red-500">*</span>
-                      <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">auto-fetched</span>
-                    </label>
-                    <textarea
-                      className={`w-full p-2 rounded border ${errors.location ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-                      value={formData.location}
-                      onChange={(e) => handleInputChange('location', e.target.value)}
-                      placeholder="Enter full address"
-                      rows={2}
-                    />
-                    {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
                   </div>
                 </div>
               )}
