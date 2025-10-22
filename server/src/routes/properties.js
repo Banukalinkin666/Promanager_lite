@@ -378,16 +378,99 @@ router.put('/:id/units/:unitId', authenticate, authorize('OWNER', 'ADMIN'), asyn
 
 // Delete unit (OWNER/ADMIN)
 router.delete('/:id/units/:unitId', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
-  const property = await Property.findById(req.params.id);
-  if (!property) return res.status(404).json({ message: 'Not found' });
-  if (req.user.role === 'OWNER' && String(property.owner) !== req.user.id) {
-    return res.status(403).json({ message: 'Forbidden' });
+  try {
+    const property = await Property.findById(req.params.id);
+    if (!property) return res.status(404).json({ message: 'Property not found' });
+    
+    if (req.user.role === 'OWNER' && String(property.owner) !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    
+    const unit = property.units.id(req.params.unitId);
+    if (!unit) return res.status(404).json({ message: 'Unit not found' });
+
+    // Import required models for validation
+    const Payment = (await import('../models/Payment.js')).default;
+    const Lease = (await import('../models/Lease.js')).default;
+    const Invoice = (await import('../models/Invoice.js')).default;
+
+    // Validation 1: Check if unit is currently occupied
+    if (unit.status === 'OCCUPIED' && unit.tenant) {
+      return res.status(400).json({ 
+        message: `Cannot delete unit "${unit.name}". The unit is currently occupied. Please move out the tenant before deleting.`,
+        details: {
+          unitName: unit.name,
+          status: unit.status,
+          hasTenant: true
+        }
+      });
+    }
+
+    // Validation 2: Check for active leases
+    const activeLeases = await Lease.find({ 
+      unit: req.params.unitId, 
+      status: 'ACTIVE' 
+    });
+    
+    if (activeLeases.length > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete unit "${unit.name}". There are ${activeLeases.length} active lease(s) associated with this unit. Please end all leases before deleting.`,
+        details: {
+          unitName: unit.name,
+          activeLeases: activeLeases.length,
+          leaseIds: activeLeases.map(l => l._id)
+        }
+      });
+    }
+
+    // Validation 3: Check for payment records
+    const payments = await Payment.find({ 
+      'metadata.unitId': req.params.unitId 
+    });
+    
+    if (payments.length > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete unit "${unit.name}". There are ${payments.length} payment record(s) associated with this unit. Please contact administrator to handle payment history before deleting.`,
+        details: {
+          unitName: unit.name,
+          totalPayments: payments.length,
+          paidPayments: payments.filter(p => p.status === 'SUCCEEDED').length,
+          pendingPayments: payments.filter(p => p.status === 'PENDING').length
+        }
+      });
+    }
+
+    // Validation 4: Check for invoices
+    const invoices = await Invoice.find({ 
+      unit: req.params.unitId 
+    });
+    
+    if (invoices.length > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete unit "${unit.name}". There are ${invoices.length} invoice(s) associated with this unit. Please resolve all invoices before deleting.`,
+        details: {
+          unitName: unit.name,
+          totalInvoices: invoices.length
+        }
+      });
+    }
+
+    // If all validations pass, delete the unit
+    unit.deleteOne();
+    await property.save();
+    
+    res.json({ 
+      ok: true, 
+      message: `Unit "${unit.name}" deleted successfully`,
+      property 
+    });
+  } catch (error) {
+    console.error('Error deleting unit:', error);
+    res.status(500).json({ 
+      message: 'Error deleting unit', 
+      error: error.message 
+    });
   }
-  const unit = property.units.id(req.params.unitId);
-  if (!unit) return res.status(404).json({ message: 'Unit not found' });
-  unit.deleteOne();
-  await property.save();
-  res.json(property);
 });
 
 // Assign tenant to unit (OWNER/ADMIN)
