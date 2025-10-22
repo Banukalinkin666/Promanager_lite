@@ -10,9 +10,7 @@ import { useToast } from '../components/ToastContainer.jsx';
 const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => {
   const toast = useToast();
   
-  // Progress tracking
-  const [currentStep, setCurrentStep] = useState(1);
-  const [completedSections, setCompletedSections] = useState([]);
+  // UI state
   const [expandedSections, setExpandedSections] = useState([1]); // Start with first section expanded
   
   // Form data state
@@ -549,23 +547,62 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
             </button>
           </div>
           
-          {/* Progress Indicator */}
-          <div className="mb-6 bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Complete all sections to process move-in
-              </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {completedSections.length} of {sections.length} sections completed
-              </span>
+          {/* Tenant Information Display */}
+          {formData.tenantId && formData.tenantName ? (
+            <div className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900 dark:to-green-900 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold">
+                  {formData.tenantName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                    {formData.tenantName}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                    {formData.emailAddress && (
+                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                        <Mail size={14} />
+                        <span>{formData.emailAddress}</span>
+                      </div>
+                    )}
+                    {formData.contactNumber && (
+                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                        <Phone size={14} />
+                        <span>{formData.contactNumber}</span>
+                      </div>
+                    )}
+                    {formData.nationalId && (
+                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                        <CreditCard size={14} />
+                        <span>{formData.nationalId}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {formData.leaseStartDate && formData.leaseEndDate && (
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Lease Period</div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {new Date(formData.leaseStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">to</div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {new Date(formData.leaseEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(completedSections.length / sections.length) * 100}%` }}
-              ></div>
+          ) : (
+            <div className="mb-6 bg-yellow-50 dark:bg-yellow-900 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700">
+              <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
+                <AlertCircle size={20} />
+                <span className="text-sm font-medium">
+                  Please select a tenant from Section 2 to begin the move-in process
+                </span>
+              </div>
             </div>
-          </div>
+          )}
           
           {/* Scrollable Form Sections */}
           <div className="max-h-[calc(100vh-400px)] overflow-y-auto space-y-4 mb-6 pr-2">
