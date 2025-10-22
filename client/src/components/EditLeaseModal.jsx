@@ -28,12 +28,36 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
   const [lease, setLease] = useState(null);
   const [tenant, setTenant] = useState(null);
   const [expandedSections, setExpandedSections] = useState([1, 2, 3]);
+  const [hasCollectedRent, setHasCollectedRent] = useState(false);
+  const [checkingRent, setCheckingRent] = useState(true);
 
   useEffect(() => {
     if (isOpen && unit) {
       loadLeaseData();
+      checkRentCollection();
     }
   }, [isOpen, unit]);
+
+  // Check if rent has been collected for this lease
+  const checkRentCollection = async () => {
+    if (!unit) return;
+    
+    setCheckingRent(true);
+    try {
+      const response = await api.get(`/payments?unitId=${unit._id}&status=SUCCEEDED`);
+      const hasPayments = response.data && response.data.length > 0;
+      setHasCollectedRent(hasPayments);
+      
+      if (hasPayments) {
+        toast.warning('Rent has been collected for this lease. Only limited fields can be edited.');
+      }
+    } catch (error) {
+      console.error('Error checking rent collection:', error);
+      setHasCollectedRent(false);
+    } finally {
+      setCheckingRent(false);
+    }
+  };
 
   const loadLeaseData = async () => {
     try {
@@ -78,6 +102,12 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!lease) return;
+
+    // Double-check rent collection status before submitting
+    if (hasCollectedRent) {
+      toast.error('Cannot update lease after rent has been collected for this lease');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -226,6 +256,38 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
           </div>
         )}
 
+        {/* Rent Collection Warning Banner */}
+        {hasCollectedRent && (
+          <div className="p-4 bg-red-50 dark:bg-red-900 border-y border-red-200 dark:border-red-700">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={24} className="text-red-600 dark:text-red-400 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-800 dark:text-red-200 mb-1">
+                  Lease Editing Restricted
+                </h3>
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  This lease cannot be edited because rent payment(s) have already been collected. 
+                  To protect financial records integrity, lease details are locked after the first payment.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* No Rent Collected - Full Edit Mode */}
+        {!hasCollectedRent && !checkingRent && (
+          <div className="p-4 bg-green-50 dark:bg-green-900 border-y border-green-200 dark:border-green-700">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={20} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  ✓ No rent collected yet - All lease details can be updated freely
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-4">
@@ -301,19 +363,12 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               
               {expandedSections.includes(2) && (
                 <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
-                  {/* Warning Message */}
-                  <div className="bg-yellow-50 dark:bg-yellow-900 p-3 rounded-lg border border-yellow-200 dark:border-yellow-700">
-                    <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200 text-sm">
-                      <AlertCircle size={16} />
-                      <span>Note: Lease cannot be edited after rent has been collected</span>
-                    </div>
-                  </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                         <Calendar size={16} />
                         Lease Start Date <span className="text-red-500">*</span>
+                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="date"
@@ -321,13 +376,15 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                         value={formData.leaseStartDate}
                         onChange={handleInputChange}
                         required
-                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                         <Calendar size={16} />
                         Lease End Date <span className="text-red-500">*</span>
+                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="date"
@@ -335,7 +392,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                         value={formData.leaseEndDate}
                         onChange={handleInputChange}
                         required
-                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
                   </div>
@@ -345,6 +403,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                         <DollarSign size={16} />
                         Monthly Rent ($) <span className="text-red-500">*</span>
+                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="number"
@@ -354,13 +413,15 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                         required
                         min="0"
                         step="0.01"
-                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                         <DollarSign size={16} />
                         Security Deposit ($)
+                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="number"
@@ -369,7 +430,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                         onChange={handleInputChange}
                         min="0"
                         step="0.01"
-                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
                   </div>
@@ -400,6 +462,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Late Fee Amount ($)
+                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="number"
@@ -408,12 +471,14 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                         onChange={handleInputChange}
                         min="0"
                         step="0.01"
-                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Late Fee After (days)
+                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="number"
@@ -421,12 +486,14 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                         value={formData.terms.lateFeeAfterDays}
                         onChange={handleInputChange}
                         min="0"
-                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Notice Period (days)
+                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="number"
@@ -434,44 +501,53 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                         value={formData.terms.noticePeriodDays}
                         onChange={handleInputChange}
                         min="0"
-                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
                   </div>
 
                   <div className="flex gap-6 pt-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className={`flex items-center gap-2 ${hasCollectedRent ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
                         name="terms.petAllowed"
                         checked={formData.terms.petAllowed}
                         onChange={handleInputChange}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        disabled={hasCollectedRent}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Pets Allowed</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Pets Allowed {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
+                      </span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className={`flex items-center gap-2 ${hasCollectedRent ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
                         name="terms.smokingAllowed"
                         checked={formData.terms.smokingAllowed}
                         onChange={handleInputChange}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        disabled={hasCollectedRent}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Smoking Allowed</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Smoking Allowed {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
+                      </span>
                     </label>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Additional Notes
+                      {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                     </label>
                     <textarea
                       name="notes"
                       value={formData.notes}
                       onChange={handleInputChange}
                       rows={3}
-                      className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      disabled={hasCollectedRent}
+                      className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       placeholder="Any additional terms or notes..."
                     />
                   </div>
@@ -488,12 +564,17 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               disabled={loading}
               className="px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors font-medium"
             >
-              Cancel
+              {hasCollectedRent ? 'Close' : 'Cancel'}
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors flex items-center gap-2 font-medium"
+              disabled={loading || hasCollectedRent}
+              className={`px-6 py-3 rounded-lg transition-colors flex items-center gap-2 font-medium text-white ${
+                hasCollectedRent 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
+              }`}
+              title={hasCollectedRent ? 'Cannot update lease after rent collection' : ''}
             >
               {loading ? (
                 <>
@@ -503,7 +584,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               ) : (
                 <>
                   <Save size={20} />
-                  Update Lease
+                  {hasCollectedRent ? 'Locked - Rent Collected' : 'Update Lease'}
                 </>
               )}
             </button>
