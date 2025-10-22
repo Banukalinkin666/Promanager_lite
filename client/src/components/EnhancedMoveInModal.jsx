@@ -362,9 +362,21 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
     setLoading(true);
     
     try {
+      // Transform the enhanced form data to match backend expectations
       const moveInData = {
-        ...formData,
-        status: 'ACTIVE'
+        tenantId: formData.tenantId,
+        leaseStartDate: formData.leaseStartDate,
+        leaseEndDate: formData.leaseEndDate,
+        monthlyRent: parseFloat(formData.monthlyRent),
+        securityDeposit: parseFloat(formData.securityDeposit || 0),
+        terms: {
+          // Add any additional terms if needed
+          lateFeeAmount: 50,
+          lateFeeAfterDays: 5,
+          noticePeriodDays: 30,
+          petAllowed: false,
+          smokingAllowed: false
+        }
       };
       
       const response = await api.post(`/move-in/${property._id}/${unit._id}`, moveInData);
@@ -476,7 +488,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
                 <div>
                   <span className="text-gray-500 dark:text-gray-400">Lease Period:</span>
                   <div className="font-medium">
-                    {new Date(pdfPreview.startDate).toLocaleDateString()} - {new Date(pdfPreview.endDate).toLocaleDateString()}
+                    {new Date(pdfPreview.leaseStartDate).toLocaleDateString()} - {new Date(pdfPreview.leaseEndDate).toLocaleDateString()}
                   </div>
                 </div>
                 <div>
