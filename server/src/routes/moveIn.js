@@ -1,11 +1,14 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import path from 'path';
+import multer from 'multer';
 import { authenticate, authorize } from '../middleware/auth.js';
 import Property from '../models/Property.js';
 import User from '../models/User.js';
 import Lease from '../models/Lease.js';
 import Payment from '../models/Payment.js';
 import { generateRentAgreement } from '../services/pdfGenerator.js';
+import documentUpload, { USE_CLOUD_STORAGE } from '../middleware/documentUpload.js';
 
 const router = express.Router();
 
@@ -48,6 +51,70 @@ const generateRentPayments = async (lease, property, unit) => {
   
   return await Payment.insertMany(payments);
 };
+
+// Upload document for move-in
+router.post('/upload-document', authenticate, authorize('OWNER', 'ADMIN'), (req, res, next) => {
+  documentUpload.single('document')(req, res, (err) => {
+    if (err) {
+      console.error('Document upload error:', err);
+      
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ 
+            message: 'File size too large. Maximum size is 10MB.',
+            error: 'FILE_SIZE_EXCEEDED'
+          });
+        }
+        return res.status(400).json({ 
+          message: err.message,
+          error: 'UPLOAD_ERROR'
+        });
+      }
+      
+      return res.status(400).json({ 
+        message: err.message || 'Error uploading document',
+        error: 'UPLOAD_ERROR'
+      });
+    }
+    
+    try {
+      if (!req.file) {
+        return res.status(400).json({ 
+          message: 'No file uploaded',
+          error: 'NO_FILE'
+        });
+      }
+
+      // Prepare response with file metadata
+      let fileUrl;
+      
+      if (USE_CLOUD_STORAGE && req.file.path && req.file.path.startsWith('http')) {
+        // Cloudinary returns full URL in file.path
+        fileUrl = req.file.path;
+        console.log('📤 Cloudinary document uploaded:', fileUrl);
+      } else {
+        // Local storage - create relative path
+        const filename = req.file.filename || path.basename(req.file.path);
+        fileUrl = `/uploads/documents/${filename}`;
+        console.log('📤 Local document uploaded:', fileUrl);
+      }
+      
+      res.json({
+        url: fileUrl,
+        filename: req.file.originalname,
+        size: req.file.size,
+        type: req.file.mimetype,
+        uploadedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error processing upload:', error);
+      res.status(500).json({ 
+        message: 'Error processing uploaded file',
+        error: error.message
+      });
+    }
+  });
+});
 
 // Get available tenants for move-in
 router.get('/tenants', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
