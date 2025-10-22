@@ -285,7 +285,7 @@ export default function PropertiesPage() {
       isOpen: true,
       type: 'delete',
       title: 'Delete Property',
-      message: 'Are you sure you want to delete this property? This action cannot be undone.',
+      message: 'Are you sure you want to delete this property?',
       onConfirm: async () => {
         try {
           await api.delete(`/properties/${propertyId}`);
@@ -297,7 +297,8 @@ export default function PropertiesPage() {
           }
         } catch (error) {
           console.error('Error deleting property:', error);
-          toast.error(error.response?.data?.message || 'Failed to delete property');
+          const errorMessage = error.response?.data?.message || 'Failed to delete property';
+          toast.error(errorMessage);
         } finally {
           setConfirmDialog({ isOpen: false, type: '', data: null });
         }

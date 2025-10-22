@@ -264,13 +264,90 @@ router.put('/:id', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) =
 
 // Delete
 router.delete('/:id', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
-  const property = await Property.findById(req.params.id);
-  if (!property) return res.status(404).json({ message: 'Not found' });
-  if (req.user.role === 'OWNER' && String(property.owner) !== req.user.id) {
-    return res.status(403).json({ message: 'Forbidden' });
+  try {
+    const property = await Property.findById(req.params.id);
+    if (!property) return res.status(404).json({ message: 'Property not found' });
+    
+    if (req.user.role === 'OWNER' && String(property.owner) !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    // Import required models for validation
+    const Payment = (await import('../models/Payment.js')).default;
+    const Lease = (await import('../models/Lease.js')).default;
+    const Invoice = (await import('../models/Invoice.js')).default;
+
+    // Check for active leases
+    const activeLeases = await Lease.find({ 
+      property: req.params.id, 
+      status: 'ACTIVE' 
+    });
+    
+    if (activeLeases.length > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete property. There are ${activeLeases.length} active lease(s) associated with this property. Please end all leases before deleting.`,
+        details: {
+          activeLeases: activeLeases.length,
+          leaseIds: activeLeases.map(l => l._id)
+        }
+      });
+    }
+
+    // Check for payment records
+    const payments = await Payment.find({ 
+      'metadata.propertyId': req.params.id 
+    });
+    
+    if (payments.length > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete property. There are ${payments.length} payment record(s) associated with this property. Please contact administrator to handle payment history before deleting.`,
+        details: {
+          totalPayments: payments.length,
+          paidPayments: payments.filter(p => p.status === 'SUCCEEDED').length,
+          pendingPayments: payments.filter(p => p.status === 'PENDING').length
+        }
+      });
+    }
+
+    // Check for invoices
+    const invoices = await Invoice.find({ property: req.params.id });
+    
+    if (invoices.length > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete property. There are ${invoices.length} invoice(s) associated with this property. Please resolve all invoices before deleting.`,
+        details: {
+          totalInvoices: invoices.length
+        }
+      });
+    }
+
+    // Check for occupied units
+    const occupiedUnits = property.units?.filter(unit => unit.status === 'OCCUPIED' && unit.tenant) || [];
+    
+    if (occupiedUnits.length > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete property. There are ${occupiedUnits.length} occupied unit(s). Please move out all tenants before deleting.`,
+        details: {
+          occupiedUnits: occupiedUnits.length,
+          unitNames: occupiedUnits.map(u => u.name)
+        }
+      });
+    }
+
+    // If all checks pass, delete the property
+    await property.deleteOne();
+    
+    res.json({ 
+      ok: true, 
+      message: 'Property deleted successfully' 
+    });
+  } catch (error) {
+    console.error('Error deleting property:', error);
+    res.status(500).json({ 
+      message: 'Error deleting property', 
+      error: error.message 
+    });
   }
-  await property.deleteOne();
-  res.json({ ok: true });
 });
 
 // Add unit to property (OWNER/ADMIN)
