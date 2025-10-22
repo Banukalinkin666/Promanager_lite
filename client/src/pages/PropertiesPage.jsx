@@ -44,26 +44,34 @@ const getImageUrl = (imagePath) => {
 // Delete Unit Button Component
 const DeleteUnitButton = ({ unit, onDelete }) => {
   const [hasTransactions, setHasTransactions] = useState(null);
+  const [hasLeases, setHasLeases] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkTransactions();
+    checkUnitHistory();
   }, [unit._id]);
 
-  const checkTransactions = async () => {
+  const checkUnitHistory = async () => {
     try {
-      const response = await api.get(`/payments?unitId=${unit._id}`);
-      const hasPayments = response.data && response.data.length > 0;
+      // Check for payments
+      const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
+      const hasPayments = paymentsResponse.data && paymentsResponse.data.length > 0;
       setHasTransactions(hasPayments);
+      
+      // Check for leases
+      const leasesResponse = await api.get(`/move-in/leases?unitId=${unit._id}`);
+      const hasPreviousLeases = leasesResponse.data && leasesResponse.data.length > 0;
+      setHasLeases(hasPreviousLeases);
     } catch (error) {
-      console.error('Error checking transactions:', error);
+      console.error('Error checking unit history:', error);
       setHasTransactions(false);
+      setHasLeases(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const isDisabled = unit.status === 'OCCUPIED' || hasTransactions;
+  const isDisabled = unit.status === 'OCCUPIED' || hasTransactions || hasLeases;
 
   if (loading) {
     return (
@@ -87,7 +95,9 @@ const DeleteUnitButton = ({ unit, onDelete }) => {
           : 'bg-red-500 hover:bg-red-600'
       }`}
       title={
-        hasTransactions
+        hasLeases
+          ? 'Cannot delete unit with previous leases'
+          : hasTransactions
           ? 'Cannot delete unit with transaction history'
           : unit.status === 'OCCUPIED'
           ? 'Cannot delete occupied unit'
@@ -474,8 +484,18 @@ export default function PropertiesPage() {
   };
 
   const deleteUnit = async (unit) => {
-    // Check if unit has any transactions
+    // Check if unit has any leases or transactions
     try {
+      // Check for leases
+      const leasesResponse = await api.get(`/move-in/leases?unitId=${unit._id}`);
+      const hasLeases = leasesResponse.data && leasesResponse.data.length > 0;
+      
+      if (hasLeases) {
+        toast.error('Cannot delete unit with previous leases. This unit has lease history that must be preserved.');
+        return;
+      }
+      
+      // Check for transactions
       const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
       const hasTransactions = paymentsResponse.data && paymentsResponse.data.length > 0;
       
