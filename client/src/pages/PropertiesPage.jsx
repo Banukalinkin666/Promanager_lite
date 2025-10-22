@@ -481,38 +481,50 @@ export default function PropertiesPage() {
   const addProperty = async (e) => {
     e.preventDefault();
     
-    if (editingProperty) {
-      // For editing, don't include units to preserve existing ones
-      const propertyData = {
-        ...formData,
-        address: `${formData.city}, ${formData.state}, ${formData.country} ${formData.zipCode}`,
-        type: formData.propertyType,
-        baseRent: parseFloat(formData.baseRent),
-        photos: formData.images
-        // Note: Not including units array to preserve existing units
-      };
-      await api.put(`/properties/${editingProperty._id}`, propertyData);
-    } else {
-      // For new properties, include units based on structure
-      const propertyData = {
-        ...formData,
-        address: `${formData.city}, ${formData.state}, ${formData.country} ${formData.zipCode}`,
-        type: formData.propertyType,
-        baseRent: parseFloat(formData.baseRent),
-        photos: formData.images,
-        units: formData.propertyStructure === 'SINGLE_UNIT' ? [{
-          name: 'Main Unit',
-          type: 'APARTMENT',
-          rentAmount: parseFloat(formData.baseRent),
-          status: 'AVAILABLE',
-          amenities: formData.features
-        }] : []
-      };
-      await api.post('/properties', propertyData);
+    try {
+      if (editingProperty) {
+        // For editing, don't include units to preserve existing ones
+        const propertyData = {
+          ...formData,
+          address: `${formData.city}, ${formData.state}, ${formData.country} ${formData.zipCode}`,
+          type: formData.propertyType,
+          baseRent: parseFloat(formData.baseRent),
+          photos: formData.images
+          // Note: Not including units array to preserve existing units
+        };
+        
+        console.log('📤 Updating property with data:', propertyData);
+        await api.put(`/properties/${editingProperty._id}`, propertyData);
+        toast.success('Property updated successfully');
+      } else {
+        // For new properties, include units based on structure
+        const propertyData = {
+          ...formData,
+          address: `${formData.city}, ${formData.state}, ${formData.country} ${formData.zipCode}`,
+          type: formData.propertyType,
+          baseRent: parseFloat(formData.baseRent),
+          photos: formData.images,
+          units: formData.propertyStructure === 'SINGLE_UNIT' ? [{
+            name: 'Main Unit',
+            type: 'APARTMENT',
+            rentAmount: parseFloat(formData.baseRent),
+            status: 'AVAILABLE',
+            amenities: formData.features
+          }] : []
+        };
+        
+        console.log('📤 Creating property with data:', propertyData);
+        const response = await api.post('/properties', propertyData);
+        console.log('✅ Property created:', response.data);
+        toast.success('Property created successfully');
+      }
+      
+      resetForm();
+      await load(); // Ensure we wait for reload
+    } catch (error) {
+      console.error('❌ Error saving property:', error);
+      toast.error(error.response?.data?.message || 'Failed to save property');
     }
-    
-    resetForm();
-    load();
   };
 
   // Calculate rent statistics
