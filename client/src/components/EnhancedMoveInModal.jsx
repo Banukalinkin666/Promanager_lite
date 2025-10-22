@@ -91,9 +91,27 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
   // Auto-fetch data when modal opens
   useEffect(() => {
     if (isOpen && property && unit) {
-      autoFetchPropertyData();
+      // Check for existing draft
+      const draftKey = `movein-draft-${property._id}-${unit._id}`;
+      const savedDraft = localStorage.getItem(draftKey);
+      
+      if (savedDraft) {
+        try {
+          const draftData = JSON.parse(savedDraft);
+          setFormData(draftData);
+          setIsDraft(true);
+          toast.info(`Draft loaded from ${new Date(draftData.savedAt).toLocaleString()}`);
+        } catch (error) {
+          console.error('Error loading draft:', error);
+          autoFetchPropertyData();
+          calculateDefaultDates();
+        }
+      } else {
+        autoFetchPropertyData();
+        calculateDefaultDates();
+      }
+      
       loadTenants();
-      calculateDefaultDates();
     }
   }, [isOpen, property, unit]);
   
@@ -302,18 +320,23 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
   
   const handleSaveDraft = async () => {
     setLoading(true);
-    setIsDraft(true);
     
     try {
       const draftData = {
         ...formData,
         propertyId: property._id,
         unitId: unit._id,
-        status: 'DRAFT'
+        propertyName: property.title,
+        unitName: unit.name,
+        status: 'DRAFT',
+        savedAt: new Date().toISOString()
       };
       
-      await api.post('/move-in/draft', draftData);
-      toast.success('Draft saved successfully');
+      // Save to localStorage for now (backend endpoint will be added later)
+      const draftKey = `movein-draft-${property._id}-${unit._id}`;
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+      
+      toast.success('Draft saved successfully! You can close and resume later.');
       setIsDraft(true);
     } catch (error) {
       console.error('Error saving draft:', error);
@@ -347,6 +370,10 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
       const response = await api.post(`/move-in/${property._id}/${unit._id}`, moveInData);
       
       toast.success('Move-in completed successfully!');
+      
+      // Clear the draft from localStorage
+      const draftKey = `movein-draft-${property._id}-${unit._id}`;
+      localStorage.removeItem(draftKey);
       
       // Generate and show PDF preview
       if (response.data.lease && response.data.lease._id) {
@@ -414,7 +441,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
   if (showPdfPreview && pdfPreview) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -489,7 +516,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-5xl w-full my-8">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-7xl w-full my-8">
         <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">

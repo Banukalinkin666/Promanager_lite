@@ -119,7 +119,8 @@ router.post('/upload-document', authenticate, authorize('OWNER', 'ADMIN'), (req,
 // Get available tenants for move-in
 router.get('/tenants', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
   try {
-    const tenants = await User.find({ role: 'TENANT' }).select('name email phone');
+    const tenants = await User.find({ role: 'TENANT' })
+      .select('firstName middleName lastName email phone nic passportNo');
     res.json(tenants);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching tenants', error: error.message });
