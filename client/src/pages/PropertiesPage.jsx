@@ -342,15 +342,18 @@ export default function PropertiesPage() {
       isOpen: true,
       type: 'delete',
       title: 'Delete Unit',
-      message: 'Are you sure you want to delete this unit? This action cannot be undone.',
+      message: 'Are you sure you want to delete this unit?',
       onConfirm: async () => {
         try {
-          await api.delete(`/properties/${selectedProperty._id}/units/${unitId}`);
-          toast.success('Unit deleted successfully');
-          loadProperty(selectedProperty._id);
+          const response = await api.delete(`/properties/${selectedProperty._id}/units/${unitId}`);
+          console.log('✅ Unit delete response:', response.data);
+          toast.success(response.data.message || 'Unit deleted successfully');
+          await loadProperty(selectedProperty._id);
         } catch (error) {
-          console.error('Error deleting unit:', error);
-          toast.error(error.response?.data?.message || 'Failed to delete unit');
+          console.error('❌ Error deleting unit:', error);
+          console.error('Error response:', error.response?.data);
+          const errorMessage = error.response?.data?.message || 'Failed to delete unit';
+          toast.error(errorMessage);
         } finally {
           setConfirmDialog({ isOpen: false, type: '', data: null });
         }
