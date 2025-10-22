@@ -394,6 +394,50 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
     ).populate('tenant', 'name email phone')
      .populate('property', 'title address');
 
+    // Regenerate PDF with updated information
+    const property = await Property.findById(updatedLease.property._id || updatedLease.property);
+    const tenant = await User.findById(updatedLease.tenant._id || updatedLease.tenant);
+    const owner = await User.findById(property.owner);
+    const unit = property.units.id(updatedLease.unit);
+
+    if (property && tenant && owner && unit) {
+      const pdfData = {
+        ...updatedLease.toObject(),
+        property: {
+          title: property.title,
+          address: property.address
+        },
+        unit: {
+          name: unit.name,
+          type: unit.type,
+          sizeSqFt: unit.sizeSqFt,
+          floor: unit.floor,
+          bedrooms: unit.bedrooms,
+          bathrooms: unit.bathrooms,
+          parking: unit.parking
+        },
+        tenant: {
+          name: tenant.name,
+          email: tenant.email,
+          phone: tenant.phone
+        },
+        owner: {
+          name: owner.name,
+          email: owner.email,
+          phone: owner.phone
+        }
+      };
+
+      // Regenerate the PDF
+      const pdfResult = await generateRentAgreement(pdfData);
+      
+      // Update lease with new PDF path
+      updatedLease.agreementPdfPath = pdfResult.relativePath;
+      await updatedLease.save();
+      
+      console.log('✅ Rent agreement PDF regenerated:', pdfResult.relativePath);
+    }
+
     res.json(updatedLease);
   } catch (error) {
     console.error('Error updating lease:', error);

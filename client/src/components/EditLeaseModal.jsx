@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   X, Save, Calendar, DollarSign, FileText, User, Building, 
   Mail, Phone, CreditCard, ChevronDown, ChevronUp, AlertCircle, 
-  Zap, Upload, File
+  Zap, Upload, File, CheckCircle, Download
 } from 'lucide-react';
 import api from '../lib/api.js';
 import { useToast } from '../components/ToastContainer.jsx';
@@ -60,6 +60,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
   const [hasCollectedRent, setHasCollectedRent] = useState(false);
   const [checkingRent, setCheckingRent] = useState(true);
   const [uploadProgress, setUploadProgress] = useState({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [updatedLeaseData, setUpdatedLeaseData] = useState(null);
 
   useEffect(() => {
     if (isOpen && unit) {
@@ -135,13 +137,13 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               emailAddress: tenantData.email || tenantData.primaryEmail || '',
               nationalId: tenantData.nic || tenantData.passportNo || '',
               emergencyContact: tenantData.emergencyContact?.phone || '',
-              leaseStartDate: unitLease.leaseStartDate ? new Date(unitLease.leaseStartDate).toISOString().split('T')[0] : '',
-              leaseEndDate: unitLease.leaseEndDate ? new Date(unitLease.leaseEndDate).toISOString().split('T')[0] : '',
-              monthlyRent: unitLease.monthlyRent || '',
-              securityDeposit: unitLease.securityDeposit || '',
+          leaseStartDate: unitLease.leaseStartDate ? new Date(unitLease.leaseStartDate).toISOString().split('T')[0] : '',
+          leaseEndDate: unitLease.leaseEndDate ? new Date(unitLease.leaseEndDate).toISOString().split('T')[0] : '',
+          monthlyRent: unitLease.monthlyRent || '',
+          securityDeposit: unitLease.securityDeposit || '',
               electricityMeterNo: unit.electricityMeterNo || '',
               waterMeterNo: unit.waterMeterNo || '',
-              notes: unitLease.notes || ''
+          notes: unitLease.notes || ''
             }));
           } catch (error) {
             console.error('Error loading tenant:', error);
@@ -248,7 +250,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
 
     setLoading(true);
     try {
-      await api.put(`/move-in/leases/${lease._id}`, {
+      const response = await api.put(`/move-in/leases/${lease._id}`, {
         leaseStartDate: formData.leaseStartDate,
         leaseEndDate: formData.leaseEndDate,
         monthlyRent: parseFloat(formData.monthlyRent),
@@ -263,9 +265,10 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
         notes: formData.notes
       });
 
+      // Store updated lease data and show success modal
+      setUpdatedLeaseData(response.data);
+      setShowSuccessModal(true);
       toast.success('Lease updated successfully!');
-      onSuccess();
-      onClose();
     } catch (error) {
       console.error('Error updating lease:', error);
       
@@ -299,7 +302,144 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
     );
   };
 
+  const downloadPdf = async () => {
+    if (!updatedLeaseData) return;
+    
+    try {
+      const pdfResponse = await fetch(`/api/move-in/agreement/${updatedLeaseData._id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (pdfResponse.ok) {
+        const blob = await pdfResponse.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        // Open in new tab
+        window.open(url, '_blank');
+        
+        // Also trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `rent-agreement-${updatedLeaseData.agreementNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => window.URL.revokeObjectURL(url), 100);
+        toast.success('Agreement downloaded successfully');
+      } else {
+        toast.error('Failed to download PDF');
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF');
+    }
+  };
+
+  const handleCloseSuccess = () => {
+    setShowSuccessModal(false);
+    onSuccess();
+    onClose();
+  };
+
   if (!isOpen || !unit) return null;
+
+  // If showing success modal
+  if (showSuccessModal && updatedLeaseData) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <CheckCircle size={24} className="text-green-500" />
+                Lease Updated Successfully!
+              </h2>
+              <button
+                onClick={handleCloseSuccess}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="bg-green-50 dark:bg-green-900 p-4 rounded-lg mb-6">
+              <p className="text-green-800 dark:text-green-200">
+                The lease for Unit {unit?.name} at {property?.title} has been successfully updated.
+                A new rent agreement PDF has been generated with the updated information.
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-900 dark:text-white">Updated Lease Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <span className="text-gray-500 dark:text-gray-400">Agreement Number:</span>
+                  <div className="font-medium text-gray-900 dark:text-white">{updatedLeaseData.agreementNumber}</div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <span className="text-gray-500 dark:text-gray-400">Lease Period:</span>
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {new Date(updatedLeaseData.leaseStartDate).toLocaleDateString()} - {new Date(updatedLeaseData.leaseEndDate).toLocaleDateString()}
+                  </div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <span className="text-gray-500 dark:text-gray-400">Monthly Rent:</span>
+                  <div className="font-medium text-gray-900 dark:text-white">${updatedLeaseData.monthlyRent?.toLocaleString()}</div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <span className="text-gray-500 dark:text-gray-400">Security Deposit:</span>
+                  <div className="font-medium text-gray-900 dark:text-white">${updatedLeaseData.securityDeposit?.toLocaleString() || 0}</div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                  <div className="font-medium text-green-600">Active</div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <span className="text-gray-500 dark:text-gray-400">Last Updated:</span>
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {new Date(updatedLeaseData.updatedAt || Date.now()).toLocaleDateString()} {new Date(updatedLeaseData.updatedAt || Date.now()).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Updated Rent Agreement PDF</h4>
+                <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center gap-3 mb-3">
+                    <FileText size={32} className="text-blue-600 dark:text-blue-400" />
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">Rent Agreement - {updatedLeaseData.agreementNumber}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Updated PDF with new lease details</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={downloadPdf}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Download size={20} />
+                    Download Updated Agreement PDF
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleCloseSuccess}
+                  className="flex-1 px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const leaseDuration = formData.leaseStartDate && formData.leaseEndDate
     ? Math.round((new Date(formData.leaseEndDate) - new Date(formData.leaseStartDate)) / (1000 * 60 * 60 * 24 * 30))
@@ -582,33 +722,33 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               
               {expandedSections.includes(3) && (
                 <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <Calendar size={16} />
                         Lease Start Date <span className="text-red-500">*</span>
                         {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.leaseStartDate}
+              </label>
+              <input
+                type="date"
+                value={formData.leaseStartDate}
                         onChange={(e) => handleInputChange('leaseStartDate', e.target.value)}
-                        required
+                required
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      />
-                    </div>
-                    <div>
+              />
+            </div>
+            <div>
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <Calendar size={16} />
                         Lease End Date <span className="text-red-500">*</span>
                         {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.leaseEndDate}
+              </label>
+              <input
+                type="date"
+                value={formData.leaseEndDate}
                         onChange={(e) => handleInputChange('leaseEndDate', e.target.value)}
-                        required
+                required
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
@@ -657,51 +797,51 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                   <div className="text-left">
                     <h3 className="font-semibold text-gray-900 dark:text-white">4. Financial Details</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Rent and payment information</p>
-                  </div>
-                </div>
+            </div>
+          </div>
                 {expandedSections.includes(4) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </button>
-              
+
               {expandedSections.includes(4) && (
                 <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <DollarSign size={16} />
                         Monthly Rent ($) <span className="text-red-500">*</span>
                         {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.monthlyRent}
+              </label>
+              <input
+                type="number"
+                value={formData.monthlyRent}
                         onChange={(e) => handleInputChange('monthlyRent', e.target.value)}
-                        required
-                        min="0"
-                        step="0.01"
+                required
+                min="0"
+                step="0.01"
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      />
-                    </div>
-                    <div>
+              />
+            </div>
+            <div>
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <DollarSign size={16} />
-                        Security Deposit ($)
+                Security Deposit ($)
                         {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.securityDeposit}
+              </label>
+              <input
+                type="number"
+                value={formData.securityDeposit}
                         onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
-                        min="0"
-                        step="0.01"
+                min="0"
+                step="0.01"
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      />
-                    </div>
+              />
+            </div>
                   </div>
                 </div>
               )}
-            </div>
+          </div>
 
             {/* Section 5: Utilities & Charges */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -722,8 +862,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               
               {expandedSections.includes(5) && (
                 <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                         Electricity Meter No {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
                       </label>
@@ -778,31 +918,31 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                     <div>
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                         Gas Fee (Monthly) {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
                         value={formData.gasFee}
                         onChange={(e) => handleInputChange('gasFee', e.target.value)}
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                         placeholder="0.00"
-                      />
-                    </div>
-                    <div>
+                />
+              </div>
+              <div>
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                         Internet Fee (Monthly) {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
-                      </label>
-                      <input
-                        type="number"
+                </label>
+                <input
+                  type="number"
                         step="0.01"
                         value={formData.internetFee}
                         onChange={(e) => handleInputChange('internetFee', e.target.value)}
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                         placeholder="0.00"
-                      />
-                    </div>
+                />
+              </div>
                   </div>
                 </div>
               )}
@@ -836,11 +976,11 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                     <div key={key} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                         {label} {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
-                      </label>
+              </label>
                       
                       {!formData.documents[key] ? (
                         <div className="relative">
-                          <input
+                <input
                             type="file"
                             accept={accept}
                             onChange={(e) => handleFileUpload(key, e.target.files[0])}
@@ -854,7 +994,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                           >
                             <Upload size={20} className="text-gray-400" />
                             <span className="text-sm text-gray-600 dark:text-gray-400">Click to upload</span>
-                          </label>
+              </label>
                           
                           {uploadProgress[key] > 0 && uploadProgress[key] < 100 && (
                             <div className="mt-2">
@@ -894,21 +1034,21 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                   ))}
                 </div>
               )}
-            </div>
+          </div>
 
             {/* Additional Notes */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Additional Notes {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
-              </label>
-              <textarea
-                value={formData.notes}
+            </label>
+            <textarea
+              value={formData.notes}
                 onChange={(e) => handleInputChange('notes', e.target.value)}
-                rows={3}
+              rows={3}
                 disabled={hasCollectedRent}
                 className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
-                placeholder="Any additional terms or notes..."
-              />
+              placeholder="Any additional terms or notes..."
+            />
             </div>
           </div>
 
