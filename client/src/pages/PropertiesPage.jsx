@@ -24,13 +24,21 @@ const getApiBaseUrl = () => {
 
 // Get image URL (handles both local and cloud URLs)
 const getImageUrl = (imagePath) => {
-  if (!imagePath) return '';
+  if (!imagePath) {
+    console.log('getImageUrl: No image path provided');
+    return '';
+  }
+  
   // If it's already a full URL (Cloudinary), return as is
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    console.log('getImageUrl: Full URL detected:', imagePath);
     return imagePath;
   }
+  
   // Otherwise, it's a local path, prepend API base URL
-  return `${getApiBaseUrl()}${imagePath}`;
+  const fullUrl = `${getApiBaseUrl()}${imagePath}`;
+  console.log('getImageUrl: Local path, constructing URL:', { imagePath, fullUrl });
+  return fullUrl;
 };
 
 // Edit Lease Button Component
@@ -249,6 +257,9 @@ export default function PropertiesPage() {
   };
 
   const editProperty = (property) => {
+    console.log('📝 Editing property:', property);
+    console.log('📸 Property photos:', property.photos);
+    
     setEditingProperty(property);
     setFormData({
       title: property.title || '',
@@ -264,6 +275,8 @@ export default function PropertiesPage() {
       features: property.features || [],
       images: property.photos || []
     });
+    
+    console.log('📋 Form data images set to:', property.photos || []);
     setShowForm(true);
   };
 
@@ -1276,11 +1289,15 @@ export default function PropertiesPage() {
                           alt={`Property ${index + 1}`}
                           className="w-full h-32 object-cover rounded border border-gray-300 dark:border-gray-600"
                           onLoad={(e) => {
+                            console.log('✅ Image loaded successfully:', image);
                             e.target.style.opacity = '1';
                           }}
                           onError={(e) => {
-                            console.error('Image failed to load:', image);
+                            console.error('❌ Image failed to load');
+                            console.error('Original path:', image);
                             console.error('Attempted URL:', getImageUrl(image));
+                            console.error('API Base URL:', getApiBaseUrl());
+                            console.error('VITE_API_URL:', import.meta.env.VITE_API_URL);
                             e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="128" viewBox="0 0 200 128"%3E%3Crect fill="%23f0f0f0" width="200" height="128"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="monospace" font-size="14" fill="%23999"%3EImage not found%3C/text%3E%3C/svg%3E';
                             e.target.style.opacity = '1';
                           }}
