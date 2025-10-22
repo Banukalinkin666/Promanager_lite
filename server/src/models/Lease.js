@@ -22,6 +22,38 @@ const LeaseSchema = new mongoose.Schema(
       default: 'ACTIVE' 
     },
     
+    // Uploaded documents
+    documents: {
+      signedLease: {
+        url: String,
+        filename: String,
+        size: Number,
+        type: String,
+        uploadedAt: Date
+      },
+      idProof: {
+        url: String,
+        filename: String,
+        size: Number,
+        type: String,
+        uploadedAt: Date
+      },
+      depositReceipt: {
+        url: String,
+        filename: String,
+        size: Number,
+        type: String,
+        uploadedAt: Date
+      },
+      moveInInspection: {
+        url: String,
+        filename: String,
+        size: Number,
+        type: String,
+        uploadedAt: Date
+      }
+    },
+    
     // Terms and conditions
     terms: {
       lateFeeAmount: { type: Number, default: 50 },

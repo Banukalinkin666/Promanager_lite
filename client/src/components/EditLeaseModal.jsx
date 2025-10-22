@@ -143,7 +143,14 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
           securityDeposit: unitLease.securityDeposit || '',
               electricityMeterNo: unit.electricityMeterNo || '',
               waterMeterNo: unit.waterMeterNo || '',
-          notes: unitLease.notes || ''
+              notes: unitLease.notes || '',
+              // Load existing documents if they exist
+              documents: {
+                signedLease: unitLease.documents?.signedLease || null,
+                idProof: unitLease.documents?.idProof || null,
+                depositReceipt: unitLease.documents?.depositReceipt || null,
+                moveInInspection: unitLease.documents?.moveInInspection || null
+              }
             }));
           } catch (error) {
             console.error('Error loading tenant:', error);
@@ -262,7 +269,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
           petAllowed: false,
           smokingAllowed: false
         },
-        notes: formData.notes
+        notes: formData.notes,
+        documents: formData.documents
       });
 
       // Store updated lease data and show success modal
@@ -330,7 +338,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
         
         setTimeout(() => window.URL.revokeObjectURL(url), 100);
         toast.success('Agreement downloaded successfully');
-      } else {
+    } else {
         toast.error('Failed to download PDF');
       }
     } catch (error) {
@@ -1032,7 +1040,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                       )}
                     </div>
                   ))}
-                </div>
+            </div>
               )}
           </div>
 

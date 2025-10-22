@@ -382,16 +382,23 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
     }
 
     // Update lease
+    const updateData = {
+      leaseStartDate: updates.leaseStartDate,
+      leaseEndDate: updates.leaseEndDate,
+      monthlyRent: updates.monthlyRent,
+      securityDeposit: updates.securityDeposit,
+      terms: updates.terms,
+      notes: updates.notes
+    };
+    
+    // Include documents if provided
+    if (updates.documents) {
+      updateData.documents = updates.documents;
+    }
+    
     const updatedLease = await Lease.findByIdAndUpdate(
       leaseId,
-      {
-        leaseStartDate: updates.leaseStartDate,
-        leaseEndDate: updates.leaseEndDate,
-        monthlyRent: updates.monthlyRent,
-        securityDeposit: updates.securityDeposit,
-        terms: updates.terms,
-        notes: updates.notes
-      },
+      updateData,
       { new: true }
     ).populate('tenant', 'name email phone')
      .populate('property', 'title address');
