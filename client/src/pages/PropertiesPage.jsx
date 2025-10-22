@@ -41,22 +41,150 @@ const getImageUrl = (imagePath) => {
   return fullUrl;
 };
 
-// Edit Lease Button Component
-const EditLeaseButton = ({ unit, onEdit }) => {
-  const [hasRent, setHasRent] = useState(null);
+// Delete Unit Button Component
+const DeleteUnitButton = ({ unit, onDelete }) => {
+  const [hasTransactions, setHasTransactions] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkRentCollection();
+    checkTransactions();
   }, [unit._id]);
 
-  const checkRentCollection = async () => {
+  const checkTransactions = async () => {
+    try {
+      const response = await api.get(`/payments?unitId=${unit._id}`);
+      const hasPayments = response.data && response.data.length > 0;
+      setHasTransactions(hasPayments);
+    } catch (error) {
+      console.error('Error checking transactions:', error);
+      setHasTransactions(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isDisabled = unit.status === 'OCCUPIED' || hasTransactions;
+
+  if (loading) {
+    return (
+      <button
+        disabled
+        className="px-3 py-1 bg-gray-400 text-white text-xs rounded-lg cursor-not-allowed flex items-center gap-1"
+      >
+        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+        ...
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => onDelete(unit)}
+      disabled={isDisabled}
+      className={`px-3 py-1 text-white text-xs rounded-lg transition-colors flex items-center gap-1 ${
+        isDisabled
+          ? 'bg-gray-400 cursor-not-allowed'
+          : 'bg-red-500 hover:bg-red-600'
+      }`}
+      title={
+        hasTransactions
+          ? 'Cannot delete unit with transaction history'
+          : unit.status === 'OCCUPIED'
+          ? 'Cannot delete occupied unit'
+          : 'Delete Unit'
+      }
+    >
+      <Trash2 size={12} />
+      Delete
+    </button>
+  );
+};
+
+// Edit Unit Button Component
+const EditUnitButton = ({ unit, onEdit }) => {
+  const [hasTransactions, setHasTransactions] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkTransactions();
+  }, [unit._id]);
+
+  const checkTransactions = async () => {
+    try {
+      const response = await api.get(`/payments?unitId=${unit._id}`);
+      const hasPayments = response.data && response.data.length > 0;
+      setHasTransactions(hasPayments);
+    } catch (error) {
+      console.error('Error checking transactions:', error);
+      setHasTransactions(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isDisabled = unit.status === 'OCCUPIED' || hasTransactions;
+
+  if (loading) {
+    return (
+      <button
+        disabled
+        className="px-3 py-1 bg-gray-400 text-white text-xs rounded-lg cursor-not-allowed flex items-center gap-1"
+      >
+        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+        ...
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => onEdit(unit)}
+      disabled={isDisabled}
+      className={`px-3 py-1 text-white text-xs rounded-lg transition-colors flex items-center gap-1 ${
+        isDisabled
+          ? 'bg-gray-400 cursor-not-allowed'
+          : 'bg-blue-500 hover:bg-blue-600'
+      }`}
+      title={
+        hasTransactions
+          ? 'Cannot edit unit with transaction history'
+          : unit.status === 'OCCUPIED'
+          ? 'Cannot edit occupied unit - use Edit Lease instead'
+          : 'Edit Unit Details'
+      }
+    >
+      <Edit size={12} />
+      Edit
+    </button>
+  );
+};
+
+// Edit Lease Button Component
+const EditLeaseButton = ({ unit, lease, onEdit }) => {
+  const [hasRent, setHasRent] = useState(null);
+  const [leaseEnded, setLeaseEnded] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkLeaseStatus();
+  }, [unit._id, lease]);
+
+  const checkLeaseStatus = async () => {
     try {
       const response = await api.get(`/payments?unitId=${unit._id}&status=SUCCEEDED`);
-      setHasRent(response.data && response.data.length > 0);
+      const hasPayments = response.data && response.data.length > 0;
+      setHasRent(hasPayments);
+      
+      // Check if lease has ended
+      if (lease && lease.leaseEndDate) {
+        const endDate = new Date(lease.leaseEndDate);
+        const today = new Date();
+        setLeaseEnded(endDate < today);
+      }
     } catch (error) {
-      console.error('Error checking rent collection:', error);
+      console.error('Error checking lease status:', error);
       setHasRent(false);
+      setLeaseEnded(false);
     } finally {
       setLoading(false);
     }
@@ -74,10 +202,35 @@ const EditLeaseButton = ({ unit, onEdit }) => {
     );
   }
 
-  if (hasRent) {
-    return null; // Don't show button if rent has been collected
+  // If rent has been collected and lease hasn't ended yet, hide button
+  if (hasRent && !leaseEnded) {
+    return (
+      <button
+        disabled
+        className="px-3 py-1 bg-gray-400 text-white text-xs rounded-lg cursor-not-allowed flex items-center gap-1"
+        title="Lease cannot be edited after rent collection until lease period ends"
+      >
+        <Edit size={12} />
+        Lease Locked
+      </button>
+    );
   }
 
+  // If lease has ended but rent was collected, allow edit with warning
+  if (hasRent && leaseEnded) {
+    return (
+      <button
+        onClick={() => onEdit(unit)}
+        className="px-3 py-1 bg-orange-500 text-white text-xs rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-1"
+        title="Lease ended - Edit to renew or terminate"
+      >
+        <Edit size={12} />
+        Edit Lease (Ended)
+      </button>
+    );
+  }
+
+  // No rent collected yet, can edit freely
   return (
     <button
       onClick={() => onEdit(unit)}
@@ -329,7 +482,26 @@ export default function PropertiesPage() {
     setShowUnitForm(false);
   };
 
-  const editUnit = (unit) => {
+  const editUnit = async (unit) => {
+    // Check if unit has any transactions
+    try {
+      const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
+      const hasTransactions = paymentsResponse.data && paymentsResponse.data.length > 0;
+      
+      if (hasTransactions) {
+        toast.error('Cannot edit unit with payment history. This unit has transaction records.');
+        return;
+      }
+      
+      // Check if unit is occupied
+      if (unit.status === 'OCCUPIED') {
+        toast.error('Cannot edit occupied unit details. Please use Edit Lease for lease information.');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking unit status:', error);
+    }
+    
     setEditingUnit(unit);
     setUnitForm({
       unit: unit.name || '',
@@ -347,15 +519,34 @@ export default function PropertiesPage() {
     setShowUnitForm(true);
   };
 
-  const deleteUnit = (unitId) => {
+  const deleteUnit = async (unit) => {
+    // Check if unit has any transactions
+    try {
+      const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
+      const hasTransactions = paymentsResponse.data && paymentsResponse.data.length > 0;
+      
+      if (hasTransactions) {
+        toast.error('Cannot delete unit with payment history. This unit has transaction records that must be preserved.');
+        return;
+      }
+      
+      // Check if unit is occupied
+      if (unit.status === 'OCCUPIED') {
+        toast.error('Cannot delete occupied unit. Please end the lease first.');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking unit status:', error);
+    }
+    
     setConfirmDialog({
       isOpen: true,
       type: 'delete',
       title: 'Delete Unit',
-      message: 'Are you sure you want to delete this unit?',
+      message: 'Are you sure you want to delete this unit? This action cannot be undone.',
       onConfirm: async () => {
         try {
-          const response = await api.delete(`/properties/${selectedProperty._id}/units/${unitId}`);
+          const response = await api.delete(`/properties/${selectedProperty._id}/units/${unit._id}`);
           console.log('✅ Unit delete response:', response.data);
           toast.success(response.data.message || 'Unit deleted successfully');
           await loadProperty(selectedProperty._id);
@@ -959,22 +1150,8 @@ export default function PropertiesPage() {
                               Move In
                             </button>
                           )}
-                          <button 
-                            onClick={() => editUnit(unit)}
-                            className="px-3 py-1 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-1"
-                            title="Edit Unit"
-                          >
-                            <Edit size={12} />
-                            Edit
-                          </button>
-                          <button 
-                            onClick={() => deleteUnit(unit._id)}
-                            className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
-                            title="Delete Unit"
-                          >
-                            <Trash2 size={12} />
-                            Delete
-                          </button>
+                          <EditUnitButton unit={unit} onEdit={editUnit} />
+                          <DeleteUnitButton unit={unit} onDelete={deleteUnit} />
                           <button
                             onClick={() => handleViewUnit(unit)}
                             className="px-3 py-1 bg-purple-500 text-white text-xs rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-1"
@@ -985,7 +1162,7 @@ export default function PropertiesPage() {
                           </button>
                           {unit.status === 'OCCUPIED' && (
                             <>
-                              <EditLeaseButton unit={unit} onEdit={handleEditLease} />
+                              <EditLeaseButton unit={unit} lease={unit.lease} onEdit={handleEditLease} />
                               <button
                                 onClick={() => handleViewRentSchedule(unit)}
                                 className="px-3 py-1 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600 transition-colors flex items-center gap-1"
