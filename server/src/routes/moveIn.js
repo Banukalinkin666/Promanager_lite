@@ -392,8 +392,7 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
       },
       { new: true }
     ).populate('tenant', 'name email phone')
-     .populate('property', 'title address')
-     .populate('unit', 'name type rentAmount');
+     .populate('property', 'title address');
 
     res.json(updatedLease);
   } catch (error) {
