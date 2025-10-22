@@ -1173,6 +1173,7 @@ export default function PropertiesPage() {
           isOpen={showEditLeaseModal}
           onClose={() => setShowEditLeaseModal(false)}
           unit={selectedUnitForEditLease}
+          property={selectedProperty}
           onSuccess={() => {
             // Refresh property data
             loadProperties();
