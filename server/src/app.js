@@ -56,6 +56,59 @@ app.get('/api/seed', async (_req, res) => {
   }
 });
 
+// Fix image paths endpoint
+app.get('/api/fix-image-paths', async (_req, res) => {
+  try {
+    const Property = (await import('./models/Property.js')).default;
+    const path = await import('path');
+    
+    const properties = await Property.find({});
+    let fixedCount = 0;
+    const results = [];
+
+    for (const property of properties) {
+      if (!property.photos || property.photos.length === 0) continue;
+
+      let needsUpdate = false;
+      const fixedPhotos = property.photos.map(photo => {
+        // Skip if already valid
+        if (photo.startsWith('http://') || photo.startsWith('https://')) return photo;
+        if (photo.startsWith('/uploads/properties/')) return photo;
+
+        // Fix absolute server paths
+        if (photo.includes('/opt/render/') || photo.includes('uploads/properties/')) {
+          needsUpdate = true;
+          const filename = path.default.basename(photo);
+          return `/uploads/properties/${filename}`;
+        }
+
+        return photo;
+      });
+
+      if (needsUpdate) {
+        property.photos = fixedPhotos;
+        await property.save();
+        fixedCount++;
+        results.push({ 
+          property: property.title, 
+          oldPhotos: property.photos, 
+          newPhotos: fixedPhotos 
+        });
+      }
+    }
+
+    res.json({ 
+      message: `Fixed ${fixedCount} properties`,
+      total: properties.length,
+      fixed: fixedCount,
+      results 
+    });
+  } catch (error) {
+    console.error('Fix image paths error:', error);
+    res.status(500).json({ message: 'Failed to fix image paths', error: error.message });
+  }
+});
+
 // Debug endpoint to check users
 app.get('/api/debug/users', async (_req, res) => {
   try {

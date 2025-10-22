@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "seed": "node src/seed/seed.js"
+    "seed": "node src/seed/seed.js",
+    "fix-images": "node fix-image-paths.js"
   },
   "dependencies": {
     "express": "^4.18.2",

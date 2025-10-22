@@ -31,16 +31,24 @@ router.post('/upload-images', authenticate, authorize('OWNER', 'ADMIN'), (req, r
 
       // Handle URLs differently for cloud vs local storage
       const imageUrls = req.files.map(file => {
-        if (USE_CLOUD_STORAGE) {
+        if (USE_CLOUD_STORAGE && file.path && file.path.startsWith('http')) {
           // Cloudinary returns full URL in file.path
+          console.log('Cloudinary upload - Full URL:', file.path);
           return file.path;
         } else {
-          // Local storage returns relative path
-          return `/uploads/properties/${file.filename}`;
+          // Local storage - extract just the filename and create relative path
+          const filename = file.filename || path.basename(file.path);
+          const relativeUrl = `/uploads/properties/${filename}`;
+          console.log('Local upload - File:', { 
+            originalPath: file.path, 
+            filename: filename,
+            relativeUrl: relativeUrl 
+          });
+          return relativeUrl;
         }
       });
       
-      console.log('Images uploaded successfully:', imageUrls);
+      console.log('📤 Images uploaded successfully:', imageUrls);
       res.json({ imageUrls });
     } catch (error) {
       console.error('Error processing uploaded images:', error);
