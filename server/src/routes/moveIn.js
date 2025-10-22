@@ -303,19 +303,21 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
     }
 
     if (!lease.agreementPdfPath) {
+      console.log('Agreement PDF path not set for lease:', req.params.leaseId);
       return res.status(404).json({ message: 'Agreement PDF not found' });
     }
 
     const fs = await import('fs');
     const path = await import('path');
-    const filePath = path.join(process.cwd(), lease.agreementPdfPath);
+    const filePath = path.default.join(process.cwd(), lease.agreementPdfPath);
     
     console.log('PDF file path:', filePath);
+    console.log('Agreement PDF path:', lease.agreementPdfPath);
     console.log('File exists:', fs.existsSync(filePath));
     
     if (!fs.existsSync(filePath)) {
       console.log('PDF file not found at:', filePath);
-      return res.status(404).json({ message: 'PDF file not found' });
+      return res.status(404).json({ message: 'PDF file not found on server' });
     }
 
     console.log('Sending PDF file:', filePath);
@@ -428,17 +430,27 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
         }
       };
 
-      // Regenerate the PDF
-      const pdfResult = await generateRentAgreement(pdfData);
-      
-      // Update lease with new PDF path
-      updatedLease.agreementPdfPath = pdfResult.relativePath;
-      await updatedLease.save();
-      
-      console.log('✅ Rent agreement PDF regenerated:', pdfResult.relativePath);
+      try {
+        // Regenerate the PDF
+        const pdfResult = await generateRentAgreement(pdfData);
+        
+        // Update lease with new PDF path
+        updatedLease.agreementPdfPath = pdfResult.relativePath;
+        await updatedLease.save();
+        
+        console.log('✅ Rent agreement PDF regenerated:', pdfResult.relativePath);
+      } catch (pdfError) {
+        console.error('Error generating PDF:', pdfError);
+        // Continue without failing the update
+      }
     }
 
-    res.json(updatedLease);
+    // Fetch the updated lease with all fields
+    const finalLease = await Lease.findById(updatedLease._id)
+      .populate('tenant', 'name email phone')
+      .populate('property', 'title address');
+
+    res.json(finalLease);
   } catch (error) {
     console.error('Error updating lease:', error);
     res.status(500).json({ message: 'Error updating lease', error: error.message });
