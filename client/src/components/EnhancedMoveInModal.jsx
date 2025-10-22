@@ -683,7 +683,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
                       <option value="">Choose a tenant...</option>
                       {tenants.map(tenant => (
                         <option key={tenant._id} value={tenant._id}>
-                          {tenant.firstName} {tenant.lastName} ({tenant.email})
+                          {tenant.firstName} {tenant.middleName ? `${tenant.middleName} ` : ''}{tenant.lastName} | {tenant.email}
                         </option>
                       ))}
                     </select>
