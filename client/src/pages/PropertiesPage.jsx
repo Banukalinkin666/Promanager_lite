@@ -102,59 +102,26 @@ const DeleteUnitButton = ({ unit, onDelete }) => {
 
 // Edit Unit Button Component
 const EditUnitButton = ({ unit, onEdit }) => {
-  const [hasTransactions, setHasTransactions] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkTransactions();
-  }, [unit._id]);
-
-  const checkTransactions = async () => {
-    try {
-      const response = await api.get(`/payments?unitId=${unit._id}`);
-      const hasPayments = response.data && response.data.length > 0;
-      setHasTransactions(hasPayments);
-    } catch (error) {
-      console.error('Error checking transactions:', error);
-      setHasTransactions(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const isDisabled = unit.status === 'OCCUPIED' || hasTransactions;
-
-  if (loading) {
-    return (
-      <button
-        disabled
-        className="px-3 py-1 bg-gray-400 text-white text-xs rounded-lg cursor-not-allowed flex items-center gap-1"
-      >
-        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
-        ...
-      </button>
-    );
-  }
+  // Only allow editing for AVAILABLE and MAINTENANCE status
+  const isEnabled = unit.status === 'AVAILABLE' || unit.status === 'MAINTENANCE';
 
   return (
     <button
       onClick={() => onEdit(unit)}
-      disabled={isDisabled}
+      disabled={!isEnabled}
       className={`px-3 py-1 text-white text-xs rounded-lg transition-colors flex items-center gap-1 ${
-        isDisabled
+        !isEnabled
           ? 'bg-gray-400 cursor-not-allowed'
           : 'bg-blue-500 hover:bg-blue-600'
       }`}
       title={
-        hasTransactions
-          ? 'Cannot edit unit with transaction history'
-          : unit.status === 'OCCUPIED'
-          ? 'Cannot edit occupied unit - use Edit Lease instead'
+        !isEnabled
+          ? 'Unit can only be edited when status is Available or Maintenance'
           : 'Edit Unit Details'
       }
     >
       <Edit size={12} />
-      Edit
+      Unit Edit
     </button>
   );
 };
@@ -482,24 +449,11 @@ export default function PropertiesPage() {
     setShowUnitForm(false);
   };
 
-  const editUnit = async (unit) => {
-    // Check if unit has any transactions
-    try {
-      const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
-      const hasTransactions = paymentsResponse.data && paymentsResponse.data.length > 0;
-      
-      if (hasTransactions) {
-        toast.error('Cannot edit unit with payment history. This unit has transaction records.');
-        return;
-      }
-      
-      // Check if unit is occupied
-      if (unit.status === 'OCCUPIED') {
-        toast.error('Cannot edit occupied unit details. Please use Edit Lease for lease information.');
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking unit status:', error);
+  const editUnit = (unit) => {
+    // Only allow editing for AVAILABLE and MAINTENANCE status
+    if (unit.status !== 'AVAILABLE' && unit.status !== 'MAINTENANCE') {
+      toast.error('Unit can only be edited when status is Available or Maintenance.');
+      return;
     }
     
     setEditingUnit(unit);
