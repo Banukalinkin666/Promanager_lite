@@ -799,7 +799,7 @@ export default function TenantsPage() {
         title={confirmDialog.title}
         message={confirmDialog.message}
         onConfirm={confirmDialog.onConfirm}
-        onCancel={confirmDialog.onCancel}
+        onClose={confirmDialog.onCancel}
       />
     </div>
   );
