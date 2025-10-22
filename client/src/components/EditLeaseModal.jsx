@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { 
   X, Save, Calendar, DollarSign, FileText, User, Building, 
-  Mail, Phone, CreditCard, ChevronDown, ChevronUp, AlertCircle, Home
+  Mail, Phone, CreditCard, ChevronDown, ChevronUp, AlertCircle, 
+  Zap, Upload, File
 } from 'lucide-react';
 import api from '../lib/api.js';
 import { useToast } from '../components/ToastContainer.jsx';
@@ -10,33 +11,84 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
   const toast = useToast();
   
   const [formData, setFormData] = useState({
+    // Tenant Information
+    tenantId: '',
+    tenantName: '',
+    contactNumber: '',
+    emailAddress: '',
+    nationalId: '',
+    emergencyContact: '',
+    
+    // Lease Details
     leaseStartDate: '',
     leaseEndDate: '',
+    leaseDuration: 12,
+    contractNumber: '',
+    rentType: 'MONTHLY',
+    
+    // Financial Details
     monthlyRent: '',
     securityDeposit: '',
-    terms: {
-      lateFeeAmount: 50,
-      lateFeeAfterDays: 5,
-      noticePeriodDays: 30,
-      petAllowed: false,
-      smokingAllowed: false
+    advancePayment: '',
+    paymentMethod: 'BANK_TRANSFER',
+    
+    // Utilities & Charges
+    electricityMeterNo: '',
+    electricityInitialReading: '',
+    waterMeterNo: '',
+    waterInitialReading: '',
+    gasFee: '',
+    internetFee: '',
+    maintenanceFee: '',
+    
+    // Documents
+    documents: {
+      signedLease: null,
+      idProof: null,
+      depositReceipt: null,
+      moveInInspection: null
     },
+    
     notes: ''
   });
   
   const [loading, setLoading] = useState(false);
   const [lease, setLease] = useState(null);
   const [tenant, setTenant] = useState(null);
-  const [expandedSections, setExpandedSections] = useState([1, 2, 3]);
+  const [tenants, setTenants] = useState([]);
+  const [expandedSections, setExpandedSections] = useState([1, 2, 3, 4, 5]);
   const [hasCollectedRent, setHasCollectedRent] = useState(false);
   const [checkingRent, setCheckingRent] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState({});
 
   useEffect(() => {
     if (isOpen && unit) {
       loadLeaseData();
       checkRentCollection();
+      loadTenants();
     }
   }, [isOpen, unit]);
+
+  // Auto-calculate lease duration when dates change
+  useEffect(() => {
+    if (formData.leaseStartDate && formData.leaseEndDate) {
+      const start = new Date(formData.leaseStartDate);
+      const end = new Date(formData.leaseEndDate);
+      const months = Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
+      if (months !== formData.leaseDuration) {
+        setFormData(prev => ({ ...prev, leaseDuration: Math.max(0, months) }));
+      }
+    }
+  }, [formData.leaseStartDate, formData.leaseEndDate]);
+
+  const loadTenants = async () => {
+    try {
+      const res = await api.get('/move-in/tenants');
+      setTenants(res.data || []);
+    } catch (error) {
+      console.error('Error loading tenants:', error);
+    }
+  };
 
   // Check if rent has been collected for this lease
   const checkRentCollection = async () => {
@@ -49,7 +101,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
       setHasCollectedRent(hasPayments);
       
       if (hasPayments) {
-        toast.warning('Rent has been collected for this lease. Only limited fields can be edited.');
+        toast.warning('Rent has been collected for this lease. Editing is restricted.');
       }
     } catch (error) {
       console.error('Error checking rent collection:', error);
@@ -72,26 +124,29 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
         if (unitLease.tenant) {
           try {
             const tenantRes = await api.get(`/tenants/${unitLease.tenant._id || unitLease.tenant}`);
-            setTenant(tenantRes.data);
+            const tenantData = tenantRes.data;
+            setTenant(tenantData);
+            
+            setFormData(prev => ({
+              ...prev,
+              tenantId: tenantData._id,
+              tenantName: `${tenantData.firstName || ''} ${tenantData.middleName || ''} ${tenantData.lastName || ''}`.trim(),
+              contactNumber: tenantData.phone || '',
+              emailAddress: tenantData.email || tenantData.primaryEmail || '',
+              nationalId: tenantData.nic || tenantData.passportNo || '',
+              emergencyContact: tenantData.emergencyContact?.phone || '',
+              leaseStartDate: unitLease.leaseStartDate ? new Date(unitLease.leaseStartDate).toISOString().split('T')[0] : '',
+              leaseEndDate: unitLease.leaseEndDate ? new Date(unitLease.leaseEndDate).toISOString().split('T')[0] : '',
+              monthlyRent: unitLease.monthlyRent || '',
+              securityDeposit: unitLease.securityDeposit || '',
+              electricityMeterNo: unit.electricityMeterNo || '',
+              waterMeterNo: unit.waterMeterNo || '',
+              notes: unitLease.notes || ''
+            }));
           } catch (error) {
             console.error('Error loading tenant:', error);
           }
         }
-        
-        setFormData({
-          leaseStartDate: unitLease.leaseStartDate ? new Date(unitLease.leaseStartDate).toISOString().split('T')[0] : '',
-          leaseEndDate: unitLease.leaseEndDate ? new Date(unitLease.leaseEndDate).toISOString().split('T')[0] : '',
-          monthlyRent: unitLease.monthlyRent || '',
-          securityDeposit: unitLease.securityDeposit || '',
-          terms: {
-            lateFeeAmount: unitLease.terms?.lateFeeAmount || 50,
-            lateFeeAfterDays: unitLease.terms?.lateFeeAfterDays || 5,
-            noticePeriodDays: unitLease.terms?.noticePeriodDays || 30,
-            petAllowed: unitLease.terms?.petAllowed || false,
-            smokingAllowed: unitLease.terms?.smokingAllowed || false
-          },
-          notes: unitLease.notes || ''
-        });
       }
     } catch (error) {
       console.error('Error loading lease data:', error);
@@ -99,11 +154,93 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
     }
   };
 
+  const handleTenantSelect = async (tenantId) => {
+    setFormData(prev => ({ ...prev, tenantId }));
+    
+    if (tenantId) {
+      try {
+        const res = await api.get(`/tenants/${tenantId}`);
+        const tenant = res.data;
+        
+        setFormData(prev => ({
+          ...prev,
+          tenantName: `${tenant.firstName} ${tenant.middleName || ''} ${tenant.lastName}`.trim(),
+          contactNumber: tenant.phone || '',
+          emailAddress: tenant.email || tenant.primaryEmail || '',
+          nationalId: tenant.nic || tenant.passportNo || ''
+        }));
+        
+        setTenant(tenant);
+        toast.success('Tenant details loaded');
+      } catch (error) {
+        console.error('Error loading tenant:', error);
+        toast.error('Failed to load tenant details');
+      }
+    }
+  };
+
+  const handleFileUpload = async (field, file) => {
+    if (!file) return;
+    
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+    
+    setUploadProgress(prev => ({ ...prev, [field]: 0 }));
+    
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('document', file);
+      uploadFormData.append('type', field);
+      
+      const response = await api.post('/move-in/upload-document', uploadFormData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(prev => ({ ...prev, [field]: percentCompleted }));
+        }
+      });
+      
+      setFormData(prev => ({
+        ...prev,
+        documents: {
+          ...prev.documents,
+          [field]: {
+            url: response.data.url,
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+            uploadedAt: new Date().toISOString()
+          }
+        }
+      }));
+      
+      setUploadProgress(prev => ({ ...prev, [field]: 100 }));
+      toast.success(`${file.name} uploaded successfully`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload file');
+      setUploadProgress(prev => ({ ...prev, [field]: null }));
+    }
+  };
+
+  const removeDocument = (field) => {
+    setFormData(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [field]: null
+      }
+    }));
+    setUploadProgress(prev => ({ ...prev, [field]: null }));
+    toast.info('Document removed');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!lease) return;
 
-    // Double-check rent collection status before submitting
     if (hasCollectedRent) {
       toast.error('Cannot update lease after rent has been collected for this lease');
       return;
@@ -116,7 +253,13 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
         leaseEndDate: formData.leaseEndDate,
         monthlyRent: parseFloat(formData.monthlyRent),
         securityDeposit: parseFloat(formData.securityDeposit || 0),
-        terms: formData.terms,
+        terms: {
+          lateFeeAmount: 50,
+          lateFeeAfterDays: 5,
+          noticePeriodDays: 30,
+          petAllowed: false,
+          smokingAllowed: false
+        },
         notes: formData.notes
       });
 
@@ -144,24 +287,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    
-    if (name.startsWith('terms.')) {
-      const termKey = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        terms: {
-          ...prev.terms,
-          [termKey]: type === 'checkbox' ? checked : value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
-    }
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const toggleSection = (sectionId) => {
@@ -174,7 +301,6 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
 
   if (!isOpen || !unit) return null;
 
-  // Calculate lease duration
   const leaseDuration = formData.leaseStartDate && formData.leaseEndDate
     ? Math.round((new Date(formData.leaseEndDate) - new Date(formData.leaseStartDate)) / (1000 * 60 * 60 * 24 * 30))
     : 0;
@@ -193,7 +319,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                 Edit Lease Details
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Unit {unit.name} - {unit.type}
+                {property?.title} - Unit {unit.name}
               </p>
             </div>
           </div>
@@ -291,7 +417,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
         {/* Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-4">
-            {/* Property Information Card */}
+            
+            {/* Section 1: Property Information Card */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 type="button"
@@ -301,7 +428,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                 <div className="flex items-center gap-3">
                   <Building size={20} className="text-blue-600 dark:text-blue-400" />
                   <div className="text-left">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Property Information</h3>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">1. Property Information</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">View property and unit details</p>
                   </div>
                 </div>
@@ -344,7 +471,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               )}
             </div>
 
-            {/* Lease Dates & Financial Details */}
+            {/* Section 2: Tenant Information */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 type="button"
@@ -352,10 +479,10 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                 className="w-full bg-green-50 dark:bg-green-900 p-4 flex items-center justify-between hover:bg-green-100 dark:hover:bg-green-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <Calendar size={20} className="text-green-600 dark:text-green-400" />
+                  <User size={20} className="text-green-600 dark:text-green-400" />
                   <div className="text-left">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Lease Dates & Financial Details</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Update lease period and rent amounts</p>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">2. Tenant Information</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Tenant contact and identification</p>
                   </div>
                 </div>
                 {expandedSections.includes(2) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -363,53 +490,191 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               
               {expandedSections.includes(2) && (
                 <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Select Tenant {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                    </label>
+                    <select
+                      value={formData.tenantId}
+                      onChange={(e) => handleTenantSelect(e.target.value)}
+                      disabled={hasCollectedRent}
+                      className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <option value="">Choose a tenant...</option>
+                      {tenants.map(t => (
+                        <option key={t._id} value={t._id}>
+                          {t.firstName} {t.middleName ? `${t.middleName} ` : ''}{t.lastName} | {t.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Tenant Name {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.tenantName}
+                        readOnly
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white ${hasCollectedRent ? 'opacity-60' : ''}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Contact Number {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.contactNumber}
+                        readOnly
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white ${hasCollectedRent ? 'opacity-60' : ''}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Email Address {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.emailAddress}
+                        readOnly
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white ${hasCollectedRent ? 'opacity-60' : ''}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        National ID / Passport {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.nationalId}
+                        readOnly
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white ${hasCollectedRent ? 'opacity-60' : ''}`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Section 3: Lease Details */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleSection(3)}
+                className="w-full bg-purple-50 dark:bg-purple-900 p-4 flex items-center justify-between hover:bg-purple-100 dark:hover:bg-purple-800 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Calendar size={20} className="text-purple-600 dark:text-purple-400" />
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">3. Lease Details</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Lease period and terms</p>
+                  </div>
+                </div>
+                {expandedSections.includes(3) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+              
+              {expandedSections.includes(3) && (
+                <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <Calendar size={16} />
                         Lease Start Date <span className="text-red-500">*</span>
                         {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="date"
-                        name="leaseStartDate"
                         value={formData.leaseStartDate}
-                        onChange={handleInputChange}
+                        onChange={(e) => handleInputChange('leaseStartDate', e.target.value)}
                         required
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <Calendar size={16} />
                         Lease End Date <span className="text-red-500">*</span>
                         {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="date"
-                        name="leaseEndDate"
                         value={formData.leaseEndDate}
-                        onChange={handleInputChange}
+                        onChange={(e) => handleInputChange('leaseEndDate', e.target.value)}
                         required
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Lease Duration (Months)
+                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">auto-calculated</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.leaseDuration}
+                        readOnly
+                        className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Rent Type {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                      </label>
+                      <select
+                        value={formData.rentType}
+                        onChange={(e) => handleInputChange('rentType', e.target.value)}
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        <option value="MONTHLY">Monthly</option>
+                        <option value="QUARTERLY">Quarterly</option>
+                        <option value="YEARLY">Yearly</option>
+                      </select>
+                    </div>
                   </div>
+                </div>
+              )}
+            </div>
 
+            {/* Section 4: Financial Details */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleSection(4)}
+                className="w-full bg-yellow-50 dark:bg-yellow-900 p-4 flex items-center justify-between hover:bg-yellow-100 dark:hover:bg-yellow-800 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <DollarSign size={20} className="text-yellow-600 dark:text-yellow-400" />
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">4. Financial Details</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Rent and payment information</p>
+                  </div>
+                </div>
+                {expandedSections.includes(4) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+              
+              {expandedSections.includes(4) && (
+                <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <DollarSign size={16} />
                         Monthly Rent ($) <span className="text-red-500">*</span>
                         {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="number"
-                        name="monthlyRent"
                         value={formData.monthlyRent}
-                        onChange={handleInputChange}
+                        onChange={(e) => handleInputChange('monthlyRent', e.target.value)}
                         required
                         min="0"
                         step="0.01"
@@ -418,16 +683,15 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <DollarSign size={16} />
                         Security Deposit ($)
                         {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
                       </label>
                       <input
                         type="number"
-                        name="securityDeposit"
                         value={formData.securityDeposit}
-                        onChange={handleInputChange}
+                        onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
                         min="0"
                         step="0.01"
                         disabled={hasCollectedRent}
@@ -439,120 +703,212 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               )}
             </div>
 
-            {/* Lease Terms */}
+            {/* Section 5: Utilities & Charges */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 type="button"
-                onClick={() => toggleSection(3)}
-                className="w-full bg-purple-50 dark:bg-purple-900 p-4 flex items-center justify-between hover:bg-purple-100 dark:hover:bg-purple-800 transition-colors"
+                onClick={() => toggleSection(5)}
+                className="w-full bg-orange-50 dark:bg-orange-900 p-4 flex items-center justify-between hover:bg-orange-100 dark:hover:bg-orange-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <FileText size={20} className="text-purple-600 dark:text-purple-400" />
+                  <Zap size={20} className="text-orange-600 dark:text-orange-400" />
                   <div className="text-left">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Lease Terms & Policies</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Late fees, notice period, and policies</p>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">5. Utilities & Charges</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Meter readings and additional fees</p>
                   </div>
                 </div>
-                {expandedSections.includes(3) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                {expandedSections.includes(5) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </button>
               
-              {expandedSections.includes(3) && (
+              {expandedSections.includes(5) && (
                 <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Late Fee Amount ($)
-                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Electricity Meter No {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.electricityMeterNo}
+                        onChange={(e) => handleInputChange('electricityMeterNo', e.target.value)}
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        placeholder="Meter number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Initial Reading {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
                       </label>
                       <input
                         type="number"
-                        name="terms.lateFeeAmount"
-                        value={formData.terms.lateFeeAmount}
-                        onChange={handleInputChange}
-                        min="0"
+                        value={formData.electricityInitialReading}
+                        onChange={(e) => handleInputChange('electricityInitialReading', e.target.value)}
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Water Meter No {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.waterMeterNo}
+                        onChange={(e) => handleInputChange('waterMeterNo', e.target.value)}
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        placeholder="Meter number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Initial Reading {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.waterInitialReading}
+                        onChange={(e) => handleInputChange('waterInitialReading', e.target.value)}
+                        disabled={hasCollectedRent}
+                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Gas Fee (Monthly) {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
+                      </label>
+                      <input
+                        type="number"
                         step="0.01"
+                        value={formData.gasFee}
+                        onChange={(e) => handleInputChange('gasFee', e.target.value)}
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        placeholder="0.00"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Late Fee After (days)
-                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Internet Fee (Monthly) {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
                       </label>
                       <input
                         type="number"
-                        name="terms.lateFeeAfterDays"
-                        value={formData.terms.lateFeeAfterDays}
-                        onChange={handleInputChange}
-                        min="0"
+                        step="0.01"
+                        value={formData.internetFee}
+                        onChange={(e) => handleInputChange('internetFee', e.target.value)}
                         disabled={hasCollectedRent}
                         className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        placeholder="0.00"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Notice Period (days)
-                        {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
-                      </label>
-                      <input
-                        type="number"
-                        name="terms.noticePeriodDays"
-                        value={formData.terms.noticePeriodDays}
-                        onChange={handleInputChange}
-                        min="0"
-                        disabled={hasCollectedRent}
-                        className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-6 pt-2">
-                    <label className={`flex items-center gap-2 ${hasCollectedRent ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-                      <input
-                        type="checkbox"
-                        name="terms.petAllowed"
-                        checked={formData.terms.petAllowed}
-                        onChange={handleInputChange}
-                        disabled={hasCollectedRent}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        Pets Allowed {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
-                      </span>
-                    </label>
-                    <label className={`flex items-center gap-2 ${hasCollectedRent ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-                      <input
-                        type="checkbox"
-                        name="terms.smokingAllowed"
-                        checked={formData.terms.smokingAllowed}
-                        onChange={handleInputChange}
-                        disabled={hasCollectedRent}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        Smoking Allowed {hasCollectedRent && <span className="text-xs text-red-500">(Locked)</span>}
-                      </span>
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Additional Notes
-                      {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
-                    </label>
-                    <textarea
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleInputChange}
-                      rows={3}
-                      disabled={hasCollectedRent}
-                      className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      placeholder="Any additional terms or notes..."
-                    />
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Section 6: Documents */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleSection(6)}
+                className="w-full bg-red-50 dark:bg-red-900 p-4 flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-800 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText size={20} className="text-red-600 dark:text-red-400" />
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">6. Documents</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Upload or update documents (max 10MB each)</p>
+                  </div>
+                </div>
+                {expandedSections.includes(6) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+              
+              {expandedSections.includes(6) && (
+                <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
+                  {[
+                    { key: 'signedLease', label: 'Signed Lease Agreement', accept: '.pdf,.docx' },
+                    { key: 'idProof', label: 'ID Proof', accept: 'image/*,.pdf' },
+                    { key: 'depositReceipt', label: 'Deposit Receipt', accept: 'image/*,.pdf' },
+                    { key: 'moveInInspection', label: 'Move-In Inspection Report', accept: 'image/*,.pdf' }
+                  ].map(({ key, label, accept }) => (
+                    <div key={key} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        {label} {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+                      </label>
+                      
+                      {!formData.documents[key] ? (
+                        <div className="relative">
+                          <input
+                            type="file"
+                            accept={accept}
+                            onChange={(e) => handleFileUpload(key, e.target.files[0])}
+                            disabled={hasCollectedRent}
+                            className="hidden"
+                            id={`upload-${key}`}
+                          />
+                          <label
+                            htmlFor={`upload-${key}`}
+                            className={`flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 transition-colors ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                          >
+                            <Upload size={20} className="text-gray-400" />
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Click to upload</span>
+                          </label>
+                          
+                          {uploadProgress[key] > 0 && uploadProgress[key] < 100 && (
+                            <div className="mt-2">
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full transition-all"
+                                  style={{ width: `${uploadProgress[key]}%` }}
+                                ></div>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">{uploadProgress[key]}% uploaded</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900 rounded">
+                          <div className="flex items-center gap-2">
+                            <File size={16} className="text-green-600 dark:text-green-400" />
+                            <span className="text-sm text-green-800 dark:text-green-200">
+                              {formData.documents[key].filename}
+                            </span>
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                              ({(formData.documents[key].size / 1024).toFixed(1)} KB)
+                            </span>
+                          </div>
+                          {!hasCollectedRent && (
+                            <button
+                              type="button"
+                              onClick={() => removeDocument(key)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X size={16} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Additional Notes */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                Additional Notes {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                rows={3}
+                disabled={hasCollectedRent}
+                className={`w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${hasCollectedRent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                placeholder="Any additional terms or notes..."
+              />
             </div>
           </div>
 
