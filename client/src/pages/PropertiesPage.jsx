@@ -1176,7 +1176,10 @@ export default function PropertiesPage() {
           property={selectedProperty}
           onSuccess={() => {
             // Refresh property data
-            loadProperties();
+            if (selectedProperty) {
+              loadProperty(selectedProperty._id);
+            }
+            load();
           }}
         />
 
