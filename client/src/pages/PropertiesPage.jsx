@@ -125,6 +125,7 @@ export default function PropertiesPage() {
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', data: null });
   const [uploading, setUploading] = useState(false);
+  const [allPayments, setAllPayments] = useState([]);
   const [unitForm, setUnitForm] = useState({
     unit: '',
     type: 'APARTMENT',
@@ -159,8 +160,17 @@ export default function PropertiesPage() {
   };
 
   const loadProperty = async (propertyId) => {
-    const res = await api.get(`/properties/${propertyId}`);
-    setSelectedProperty(res.data);
+    try {
+      const res = await api.get(`/properties/${propertyId}`);
+      setSelectedProperty(res.data);
+      
+      // Load all payments for this property to calculate accurate rent stats
+      const paymentsRes = await api.get('/payments');
+      setAllPayments(paymentsRes.data || []);
+    } catch (error) {
+      console.error('Error loading property:', error);
+      toast.error('Failed to load property details');
+    }
   };
 
   useEffect(() => { 
@@ -531,15 +541,30 @@ export default function PropertiesPage() {
     }
   };
 
-  // Calculate rent statistics
+  // Calculate rent statistics based on actual payments
   const calculateRentStats = (property) => {
-    if (!property || !property.units) return { totalRent: 0, collectedRent: 0 };
+    if (!property || !property.units) return { totalRent: 0, collectedRent: 0, pendingRent: 0 };
     
-    const totalRent = property.units.reduce((sum, unit) => sum + (unit.rentAmount || 0), 0);
-    // For demo purposes, assume 70% collection rate
-    const collectedRent = totalRent * 0.7;
+    // Total rent should only include occupied units (active leases)
+    const totalRent = property.units
+      .filter(unit => unit.status === 'OCCUPIED')
+      .reduce((sum, unit) => sum + (unit.rentAmount || 0), 0);
     
-    return { totalRent, collectedRent };
+    // Get actual collected and pending rent from payments state
+    // This will be populated by loadPropertyPayments()
+    const propertyPayments = allPayments.filter(payment => 
+      payment.metadata?.propertyId === property._id
+    );
+    
+    const collectedRent = propertyPayments
+      .filter(p => p.status === 'SUCCEEDED')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    const pendingRent = propertyPayments
+      .filter(p => p.status === 'PENDING')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    return { totalRent, collectedRent, pendingRent };
   };
 
   // Calculate unit status counts
@@ -1008,17 +1033,26 @@ export default function PropertiesPage() {
                     <AlertCircle size={14} className="text-red-500" />
                     Pending
                   </span>
-                  <span className="font-medium text-lg text-red-600">${(rentStats.totalRent - rentStats.collectedRent).toFixed(2)}</span>
+                  <span className="font-medium text-lg text-red-600">${rentStats.pendingRent.toFixed(2)}</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-green-500 h-2 rounded-full" 
-                    style={{ width: `${(rentStats.collectedRent / rentStats.totalRent) * 100}%` }}
-                  ></div>
-                </div>
-                <div className="text-xs text-gray-500 text-center">
-                  {((rentStats.collectedRent / rentStats.totalRent) * 100).toFixed(1)}% Collected
-                </div>
+                {rentStats.totalRent > 0 && (
+                  <>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full" 
+                        style={{ width: `${(rentStats.collectedRent / rentStats.totalRent) * 100}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-500 text-center">
+                      {((rentStats.collectedRent / rentStats.totalRent) * 100).toFixed(1)}% Collected
+                    </div>
+                  </>
+                )}
+                {rentStats.totalRent === 0 && (
+                  <div className="text-xs text-gray-500 text-center py-2">
+                    No active leases yet
+                  </div>
+                )}
               </div>
             </div>
 
