@@ -1145,6 +1145,16 @@ export default function PropertiesPage() {
           }}
         />
 
+        {/* Confirm Dialog (for unit delete, etc.) */}
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          type={confirmDialog.type}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onClose={confirmDialog.onCancel}
+        />
+
       </div>
     );
   }
