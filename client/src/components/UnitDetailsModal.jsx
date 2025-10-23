@@ -45,7 +45,14 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
     if (!lease) return;
     
     try {
+      console.log('📄 Downloading PDF for lease:', lease._id);
       const token = localStorage.getItem('token');
+      
+      // Show loading state
+      const loadingToast = document.createElement('div');
+      loadingToast.textContent = 'Generating PDF...';
+      loadingToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#4CAF50;color:white;padding:12px 24px;border-radius:8px;z-index:10000;';
+      document.body.appendChild(loadingToast);
       
       // Fetch the PDF with proper authentication
       const response = await fetch(`/api/move-in/agreement/${lease._id}`, {
@@ -55,15 +62,29 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
         }
       });
       
+      document.body.removeChild(loadingToast);
+      
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response headers:', response.headers.get('content-type'));
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server error:', errorText);
         throw new Error(`Failed to download PDF: ${response.status}`);
       }
       
       // Get the PDF blob
       const blob = await response.blob();
+      console.log('📦 Blob size:', blob.size, 'bytes');
+      console.log('📦 Blob type:', blob.type);
+      
+      if (blob.size === 0) {
+        throw new Error('PDF is empty');
+      }
       
       // Create a URL for the blob
       const blobUrl = window.URL.createObjectURL(blob);
+      console.log('🔗 Blob URL created:', blobUrl);
       
       // Open in new window
       const newWindow = window.open(blobUrl, '_blank');
@@ -80,8 +101,8 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
         alert('Popup was blocked. PDF has been downloaded instead.');
       }
     } catch (error) {
-      console.error('Error downloading agreement:', error);
-      alert('Failed to download rent agreement. Please try again.');
+      console.error('❌ Error downloading agreement:', error);
+      alert(`Failed to download rent agreement: ${error.message}`);
     }
   };
 
