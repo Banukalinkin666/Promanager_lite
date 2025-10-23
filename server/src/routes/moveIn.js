@@ -334,6 +334,49 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
   }
 });
 
+// Fix old terminated leases (mark leases for AVAILABLE units as TERMINATED)
+router.post('/fix-terminated-leases', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
+  try {
+    console.log('🔍 Finding leases that need to be marked as TERMINATED...');
+    
+    // Get all properties
+    const properties = await Property.find({});
+    let fixedCount = 0;
+    
+    for (const property of properties) {
+      for (const unit of property.units) {
+        // If unit is AVAILABLE (not occupied), find its active leases
+        if (unit.status === 'AVAILABLE') {
+          const activeLeases = await Lease.find({
+            unit: unit._id,
+            status: 'ACTIVE'
+          });
+          
+          if (activeLeases.length > 0) {
+            console.log(`📋 Found ${activeLeases.length} active lease(s) for AVAILABLE unit ${unit._id}`);
+            
+            for (const lease of activeLeases) {
+              // Update lease status to TERMINATED
+              await Lease.findByIdAndUpdate(lease._id, { status: 'TERMINATED' });
+              console.log(`  ✅ Marked lease ${lease._id} as TERMINATED`);
+              fixedCount++;
+            }
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ Fixed ${fixedCount} lease(s)`);
+    res.json({ 
+      message: `Successfully updated ${fixedCount} lease(s) to TERMINATED status`,
+      count: fixedCount
+    });
+  } catch (error) {
+    console.error('❌ Error fixing leases:', error);
+    res.status(500).json({ message: 'Error fixing leases', error: error.message });
+  }
+});
+
 // Get lease history for a unit
 router.get('/units/:unitId/lease-history', authenticate, async (req, res) => {
   try {
