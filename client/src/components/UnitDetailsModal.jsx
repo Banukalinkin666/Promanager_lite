@@ -279,6 +279,16 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
                       today.setHours(0, 0, 0, 0); // Reset time for accurate date comparison
                       const isLeaseActive = leaseEndDate >= today;
                       
+                      console.log('📅 Lease Status Check:', {
+                        agreementNumber: lease.agreementNumber,
+                        leaseEndDate: leaseEndDate.toLocaleDateString(),
+                        today: today.toLocaleDateString(),
+                        leaseEndDateTimestamp: leaseEndDate.getTime(),
+                        todayTimestamp: today.getTime(),
+                        isLeaseActive,
+                        rawLeaseEndDate: lease.leaseEndDate
+                      });
+                      
                       return (
                         <div 
                           key={lease._id}
