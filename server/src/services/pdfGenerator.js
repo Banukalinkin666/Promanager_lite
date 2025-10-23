@@ -5,16 +5,20 @@ import PDFDocument from 'pdfkit';
  * Modern streaming approach - no filesystem required
  */
 export const streamRentAgreementPDF = (leaseData, res) => {
+  console.log('📄 Starting PDF generation for:', leaseData.agreementNumber);
+  
   try {
-    const doc = new PDFDocument({ margin: 50, bufferPages: true });
+    const doc = new PDFDocument({ margin: 50 });
     
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="rent-agreement-${leaseData.agreementNumber}.pdf"`);
     res.setHeader('Cache-Control', 'no-cache');
     
-    // Pipe PDF directly to response
+    // Pipe PDF directly to response - MUST be done before adding content
     doc.pipe(res);
+    
+    console.log('✅ PDF pipe established');
     
     // Header
     doc.fontSize(20).font('Helvetica-Bold')
@@ -159,7 +163,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
 export const generateRentAgreementPDF = (leaseData) => {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 50, bufferPages: true });
+      const doc = new PDFDocument({ margin: 50 });
       const chunks = [];
       
       // Collect PDF data in memory
