@@ -8,7 +8,7 @@ import Property from '../models/Property.js';
 import User from '../models/User.js';
 import Lease from '../models/Lease.js';
 import Payment from '../models/Payment.js';
-import { generateRentAgreement } from '../services/pdfGenerator.js';
+import { generateRentAgreementPDF, streamRentAgreementPDF } from '../services/pdfGenerator.js';
 import documentUpload, { USE_CLOUD_STORAGE } from '../middleware/documentUpload.js';
 
 const router = express.Router();
@@ -207,48 +207,15 @@ router.post('/:propertyId/:unitId', authenticate, authorize('OWNER', 'ADMIN'), a
     unit.tenant = tenantId;
     await property.save();
 
-    // Generate PDF agreement
-    const pdfData = {
-      ...lease.toObject(),
-      property: {
-        title: property.title,
-        address: property.address
-      },
-      unit: {
-        name: unit.name,
-        type: unit.type,
-        sizeSqFt: unit.sizeSqFt,
-        floor: unit.floor,
-        bedrooms: unit.bedrooms,
-        bathrooms: unit.bathrooms,
-        parking: unit.parking
-      },
-      tenant: {
-        name: tenant.name,
-        email: tenant.email,
-        phone: tenant.phone
-      },
-      owner: {
-        name: owner.name,
-        email: owner.email,
-        phone: owner.phone
-      }
-    };
-
-    const pdfResult = await generateRentAgreement(pdfData);
-    
-    // Update lease with PDF path
-    lease.agreementPdfPath = pdfResult.relativePath;
-    await lease.save();
-
     // Generate rent payment records for the entire lease period
     const rentPayments = await generateRentPayments(lease, property, unit);
+    
+    // PDF will be generated on-demand when downloaded (modern streaming approach)
+    console.log('✅ Move-in successful - PDF will be generated on-demand');
 
     res.json({
-      message: 'Move-in successful, rent agreement generated, and payment schedule created',
+      message: 'Move-in successful and payment schedule created',
       lease: lease,
-      pdfPath: pdfResult.relativePath,
-      pdfFileName: pdfResult.fileName,
       paymentsCreated: rentPayments.length
     });
 
@@ -285,17 +252,18 @@ router.get('/leases', authenticate, authorize('OWNER', 'ADMIN', 'TENANT'), async
   }
 });
 
-// Download agreement PDF
+// Download agreement PDF - Modern streaming approach
 router.get('/agreement/:leaseId', authenticate, async (req, res) => {
   try {
-    console.log('PDF download request for lease:', req.params.leaseId);
+    console.log('📄 PDF download request for lease:', req.params.leaseId);
+    
     const lease = await Lease.findById(req.params.leaseId)
       .populate('tenant', 'name email phone')
       .populate('property', 'title address')
       .populate('owner', 'name email phone');
       
     if (!lease) {
-      console.log('Lease not found:', req.params.leaseId);
+      console.log('❌ Lease not found:', req.params.leaseId);
       return res.status(404).json({ message: 'Lease not found' });
     }
 
@@ -307,93 +275,55 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    let filePath;
+    // Get property and unit details
+    const property = await Property.findById(lease.property._id || lease.property);
+    if (!property) {
+      return res.status(404).json({ message: 'Property not found' });
+    }
     
-    // Check if PDF exists - look in /tmp for production, local otherwise
-    const isProduction = process.env.NODE_ENV === 'production';
-    if (lease.agreementPdfPath) {
-      if (isProduction) {
-        // On Render, check /tmp directory
-        const fileName = path.basename(lease.agreementPdfPath);
-        filePath = path.join('/tmp/agreements', fileName);
-      } else {
-        // Local development
-        filePath = path.join(process.cwd(), lease.agreementPdfPath);
+    const unit = property.units.id(lease.unit);
+    if (!unit) {
+      return res.status(404).json({ message: 'Unit not found' });
+    }
+    
+    // Prepare data for PDF generation
+    const pdfData = {
+      ...lease.toObject(),
+      property: {
+        title: property.title,
+        address: property.address
+      },
+      unit: {
+        name: unit.name,
+        type: unit.type,
+        sizeSqFt: unit.sizeSqFt,
+        floor: unit.floor,
+        bedrooms: unit.bedrooms,
+        bathrooms: unit.bathrooms,
+        parking: unit.parking
+      },
+      tenant: {
+        name: lease.tenant.name,
+        email: lease.tenant.email,
+        phone: lease.tenant.phone
+      },
+      owner: {
+        name: lease.owner.name,
+        email: lease.owner.email,
+        phone: lease.owner.phone
       }
-      console.log('Checking for existing PDF at:', filePath);
-    }
+    };
     
-    if (!lease.agreementPdfPath || !fs.existsSync(filePath)) {
-      console.log('PDF not found or path missing, regenerating...');
-      
-      // Get property and unit details
-      const property = await Property.findById(lease.property._id || lease.property);
-      const unit = property.units.id(lease.unit);
-      
-      // Prepare data for PDF generation
-      const pdfData = {
-        ...lease.toObject(),
-        property: {
-          title: property.title,
-          address: property.address
-        },
-        unit: {
-          name: unit.name,
-          type: unit.type,
-          sizeSqFt: unit.sizeSqFt,
-          floor: unit.floor,
-          bedrooms: unit.bedrooms,
-          bathrooms: unit.bathrooms,
-          parking: unit.parking
-        },
-        tenant: {
-          name: lease.tenant.name,
-          email: lease.tenant.email,
-          phone: lease.tenant.phone
-        },
-        owner: {
-          name: lease.owner.name,
-          email: lease.owner.email,
-          phone: lease.owner.phone
-        }
-      };
-      
-      // Regenerate PDF
-      const pdfResult = await generateRentAgreement(pdfData);
-      filePath = pdfResult.filePath;
-      
-      // Update lease with new path
-      lease.agreementPdfPath = pdfResult.relativePath;
-      await lease.save();
-      
-      console.log('PDF regenerated at:', filePath);
-    }
-
-    console.log('Sending PDF file:', filePath);
+    console.log('✅ Streaming PDF for agreement:', lease.agreementNumber);
     
-    // Verify file exists before sending
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`PDF file not found at path: ${filePath}`);
-    }
+    // Stream PDF directly to response (no filesystem involved!)
+    streamRentAgreementPDF(pdfData, res);
     
-    // Check file size
-    const stats = fs.statSync(filePath);
-    console.log('PDF file size:', stats.size, 'bytes');
-    
-    if (stats.size === 0) {
-      throw new Error('PDF file is empty');
-    }
-    
-    // Set headers for PDF viewing in browser
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="rent-agreement-${lease.agreementNumber}.pdf"`);
-    res.setHeader('Cache-Control', 'no-cache');
-    
-    // Send the PDF file for inline viewing
-    res.sendFile(filePath);
   } catch (error) {
-    console.error('Error downloading agreement:', error);
-    res.status(500).json({ message: 'Error downloading agreement', error: error.message });
+    console.error('❌ Error generating/streaming PDF:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Error generating agreement PDF', error: error.message });
+    }
   }
 });
 
@@ -567,54 +497,8 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
     ).populate('tenant', 'name email phone')
      .populate('property', 'title address');
 
-    // Regenerate PDF with updated information
-    const property = await Property.findById(updatedLease.property._id || updatedLease.property);
-    const tenant = await User.findById(updatedLease.tenant._id || updatedLease.tenant);
-    const owner = await User.findById(property.owner);
-    const unit = property.units.id(updatedLease.unit);
-
-    if (property && tenant && owner && unit) {
-      const pdfData = {
-        ...updatedLease.toObject(),
-        property: {
-          title: property.title,
-          address: property.address
-        },
-        unit: {
-          name: unit.name,
-          type: unit.type,
-          sizeSqFt: unit.sizeSqFt,
-          floor: unit.floor,
-          bedrooms: unit.bedrooms,
-          bathrooms: unit.bathrooms,
-          parking: unit.parking
-        },
-        tenant: {
-          name: tenant.name,
-          email: tenant.email,
-          phone: tenant.phone
-        },
-        owner: {
-          name: owner.name,
-          email: owner.email,
-          phone: owner.phone
-        }
-      };
-
-      try {
-        // Regenerate the PDF
-        const pdfResult = await generateRentAgreement(pdfData);
-        
-        // Update lease with new PDF path
-        updatedLease.agreementPdfPath = pdfResult.relativePath;
-        await updatedLease.save();
-        
-        console.log('✅ Rent agreement PDF regenerated:', pdfResult.relativePath);
-      } catch (pdfError) {
-        console.error('Error generating PDF:', pdfError);
-        // Continue without failing the update
-      }
-    }
+    // PDF will be regenerated on-demand when downloaded (modern streaming approach)
+    console.log('✅ Lease updated - PDF will be generated on-demand');
 
     // Fetch the updated lease with all fields
     const finalLease = await Lease.findById(updatedLease._id)
