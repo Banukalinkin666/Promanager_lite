@@ -256,6 +256,7 @@ router.get('/leases', authenticate, authorize('OWNER', 'ADMIN', 'TENANT'), async
 router.get('/agreement/:leaseId', authenticate, async (req, res) => {
   try {
     console.log('📄 PDF download request for lease:', req.params.leaseId);
+    console.log('👤 User:', req.user.id, 'Role:', req.user.role);
     
     const lease = await Lease.findById(req.params.leaseId)
       .populate('tenant', 'name email phone')
@@ -267,24 +268,36 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Lease not found' });
     }
 
+    console.log('✅ Lease found:', lease.agreementNumber);
+
     // Check permissions
     if (req.user.role === 'TENANT' && String(lease.tenant._id) !== req.user.id) {
+      console.log('❌ Access denied: Tenant ID mismatch');
       return res.status(403).json({ message: 'Access denied' });
     }
     if (req.user.role === 'OWNER' && String(lease.owner._id) !== req.user.id) {
+      console.log('❌ Access denied: Owner ID mismatch');
       return res.status(403).json({ message: 'Access denied' });
     }
+
+    console.log('✅ Permission check passed');
 
     // Get property and unit details
     const property = await Property.findById(lease.property._id || lease.property);
     if (!property) {
+      console.log('❌ Property not found:', lease.property._id || lease.property);
       return res.status(404).json({ message: 'Property not found' });
     }
     
+    console.log('✅ Property found:', property.title);
+    
     const unit = property.units.id(lease.unit);
     if (!unit) {
+      console.log('❌ Unit not found:', lease.unit);
       return res.status(404).json({ message: 'Unit not found' });
     }
+    
+    console.log('✅ Unit found:', unit.name);
     
     // Prepare data for PDF generation
     const pdfData = {
@@ -314,13 +327,21 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
       }
     };
     
-    console.log('✅ Streaming PDF for agreement:', lease.agreementNumber);
+    console.log('📝 PDF data prepared:', {
+      agreement: lease.agreementNumber,
+      property: property.title,
+      unit: unit.name,
+      tenant: lease.tenant.name
+    });
+    
+    console.log('🚀 Starting PDF stream...');
     
     // Stream PDF directly to response (no filesystem involved!)
     streamRentAgreementPDF(pdfData, res);
     
   } catch (error) {
     console.error('❌ Error generating/streaming PDF:', error);
+    console.error('Stack:', error.stack);
     if (!res.headersSent) {
       res.status(500).json({ message: 'Error generating agreement PDF', error: error.message });
     }
