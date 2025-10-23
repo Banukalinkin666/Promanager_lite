@@ -288,36 +288,79 @@ router.get('/leases', authenticate, authorize('OWNER', 'ADMIN', 'TENANT'), async
 router.get('/agreement/:leaseId', authenticate, async (req, res) => {
   try {
     console.log('PDF download request for lease:', req.params.leaseId);
-    const lease = await Lease.findById(req.params.leaseId);
+    const lease = await Lease.findById(req.params.leaseId)
+      .populate('tenant', 'name email phone')
+      .populate('property', 'title address')
+      .populate('owner', 'name email phone');
+      
     if (!lease) {
       console.log('Lease not found:', req.params.leaseId);
       return res.status(404).json({ message: 'Lease not found' });
     }
 
     // Check permissions
-    if (req.user.role === 'TENANT' && String(lease.tenant) !== req.user.id) {
+    if (req.user.role === 'TENANT' && String(lease.tenant._id) !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    if (req.user.role === 'OWNER' && String(lease.owner) !== req.user.id) {
+    if (req.user.role === 'OWNER' && String(lease.owner._id) !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
-    }
-
-    if (!lease.agreementPdfPath) {
-      console.log('Agreement PDF path not set for lease:', req.params.leaseId);
-      return res.status(404).json({ message: 'Agreement PDF not found' });
     }
 
     const fs = await import('fs');
     const path = await import('path');
-    const filePath = path.default.join(process.cwd(), lease.agreementPdfPath);
     
-    console.log('PDF file path:', filePath);
-    console.log('Agreement PDF path:', lease.agreementPdfPath);
-    console.log('File exists:', fs.existsSync(filePath));
+    let filePath;
     
-    if (!fs.existsSync(filePath)) {
-      console.log('PDF file not found at:', filePath);
-      return res.status(404).json({ message: 'PDF file not found on server' });
+    // Check if PDF exists, if not regenerate it
+    if (lease.agreementPdfPath) {
+      filePath = path.default.join(process.cwd(), lease.agreementPdfPath);
+      console.log('Checking for existing PDF at:', filePath);
+    }
+    
+    if (!lease.agreementPdfPath || !fs.existsSync(filePath)) {
+      console.log('PDF not found or path missing, regenerating...');
+      
+      // Get property and unit details
+      const property = await Property.findById(lease.property._id || lease.property);
+      const unit = property.units.id(lease.unit);
+      
+      // Prepare data for PDF generation
+      const pdfData = {
+        ...lease.toObject(),
+        property: {
+          title: property.title,
+          address: property.address
+        },
+        unit: {
+          name: unit.name,
+          type: unit.type,
+          sizeSqFt: unit.sizeSqFt,
+          floor: unit.floor,
+          bedrooms: unit.bedrooms,
+          bathrooms: unit.bathrooms,
+          parking: unit.parking
+        },
+        tenant: {
+          name: lease.tenant.name,
+          email: lease.tenant.email,
+          phone: lease.tenant.phone
+        },
+        owner: {
+          name: lease.owner.name,
+          email: lease.owner.email,
+          phone: lease.owner.phone
+        }
+      };
+      
+      // Regenerate PDF
+      const pdfResult = await generateRentAgreement(pdfData);
+      filePath = pdfResult.filePath;
+      
+      // Update lease with new path
+      lease.agreementPdfPath = pdfResult.relativePath;
+      await lease.save();
+      
+      console.log('PDF regenerated at:', filePath);
     }
 
     console.log('Sending PDF file:', filePath);
@@ -330,6 +373,7 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
     // Send the PDF file for inline viewing
     res.sendFile(filePath);
   } catch (error) {
+    console.error('Error downloading agreement:', error);
     res.status(500).json({ message: 'Error downloading agreement', error: error.message });
   }
 });
