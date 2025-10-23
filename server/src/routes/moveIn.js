@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import path from 'path';
+import fs from 'fs';
 import multer from 'multer';
 import { authenticate, authorize } from '../middleware/auth.js';
 import Property from '../models/Property.js';
@@ -306,14 +307,11 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const fs = await import('fs');
-    const path = await import('path');
-    
     let filePath;
     
     // Check if PDF exists, if not regenerate it
     if (lease.agreementPdfPath) {
-      filePath = path.default.join(process.cwd(), lease.agreementPdfPath);
+      filePath = path.join(process.cwd(), lease.agreementPdfPath);
       console.log('Checking for existing PDF at:', filePath);
     }
     
@@ -366,13 +364,12 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
     console.log('Sending PDF file:', filePath);
     
     // Verify file exists before sending
-    const fs = await import('fs');
-    if (!fs.default.existsSync(filePath)) {
+    if (!fs.existsSync(filePath)) {
       throw new Error(`PDF file not found at path: ${filePath}`);
     }
     
     // Check file size
-    const stats = fs.default.statSync(filePath);
+    const stats = fs.statSync(filePath);
     console.log('PDF file size:', stats.size, 'bytes');
     
     if (stats.size === 0) {
