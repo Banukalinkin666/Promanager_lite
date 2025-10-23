@@ -334,6 +334,48 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
   }
 });
 
+// Delete Unit 100 leases for fresh start
+router.delete('/delete-unit-100-leases', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
+  try {
+    console.log('🗑️ Deleting Unit 100 lease history...');
+    
+    // Find the property
+    const property = await Property.findOne({ title: 'Green Valley Estates' });
+    
+    if (!property) {
+      return res.status(404).json({ message: 'Property "Green Valley Estates" not found' });
+    }
+    
+    // Find unit 100
+    const unit100 = property.units.find(u => u.name === '100');
+    
+    if (!unit100) {
+      return res.status(404).json({ message: 'Unit 100 not found in this property' });
+    }
+    
+    console.log(`✅ Found Unit 100 (ID: ${unit100._id})`);
+    
+    // Delete payments for this unit
+    const paymentDeleteResult = await Payment.deleteMany({ 
+      'metadata.unitId': unit100._id 
+    });
+    console.log(`✅ Deleted ${paymentDeleteResult.deletedCount} payment(s)`);
+    
+    // Delete the leases
+    const leaseDeleteResult = await Lease.deleteMany({ unit: unit100._id });
+    console.log(`✅ Deleted ${leaseDeleteResult.deletedCount} lease(s)`);
+    
+    res.json({ 
+      message: `Successfully deleted all lease history for Unit 100`,
+      leasesDeleted: leaseDeleteResult.deletedCount,
+      paymentsDeleted: paymentDeleteResult.deletedCount
+    });
+  } catch (error) {
+    console.error('❌ Error deleting leases:', error);
+    res.status(500).json({ message: 'Error deleting leases', error: error.message });
+  }
+});
+
 // Fix old terminated leases (mark leases for AVAILABLE units as TERMINATED)
 router.post('/fix-terminated-leases', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
   try {
