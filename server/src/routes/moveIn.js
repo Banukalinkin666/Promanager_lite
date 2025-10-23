@@ -309,9 +309,17 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
 
     let filePath;
     
-    // Check if PDF exists, if not regenerate it
+    // Check if PDF exists - look in /tmp for production, local otherwise
+    const isProduction = process.env.NODE_ENV === 'production';
     if (lease.agreementPdfPath) {
-      filePath = path.join(process.cwd(), lease.agreementPdfPath);
+      if (isProduction) {
+        // On Render, check /tmp directory
+        const fileName = path.basename(lease.agreementPdfPath);
+        filePath = path.join('/tmp/agreements', fileName);
+      } else {
+        // Local development
+        filePath = path.join(process.cwd(), lease.agreementPdfPath);
+      }
       console.log('Checking for existing PDF at:', filePath);
     }
     

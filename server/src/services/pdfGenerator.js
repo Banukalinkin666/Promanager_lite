@@ -9,11 +9,17 @@ const __dirname = path.dirname(__filename);
 export const generateRentAgreement = async (leaseData) => {
   const doc = new PDFDocument({ margin: 50 });
   
-  // Create agreements directory if it doesn't exist
-  const agreementsDir = path.join(__dirname, '../../agreements');
+  // Create agreements directory - use /tmp on production (Render), local otherwise
+  const isProduction = process.env.NODE_ENV === 'production';
+  const agreementsDir = isProduction 
+    ? path.join('/tmp', 'agreements')
+    : path.join(__dirname, '../../agreements');
+    
   if (!fs.existsSync(agreementsDir)) {
     fs.mkdirSync(agreementsDir, { recursive: true });
   }
+  
+  console.log('📁 Using agreements directory:', agreementsDir);
   
   const fileName = `rent-agreement-${leaseData.agreementNumber}.pdf`;
   const filePath = path.join(agreementsDir, fileName);
