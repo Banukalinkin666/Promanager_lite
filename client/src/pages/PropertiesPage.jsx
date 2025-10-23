@@ -113,36 +113,49 @@ const DeleteUnitButton = ({ unit, onDelete }) => {
 // Edit Unit Button Component
 const EditUnitButton = ({ unit, onEdit }) => {
   const [hasTransactions, setHasTransactions] = useState(null);
+  const [hasLeases, setHasLeases] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const checkTransactions = useCallback(async () => {
+  const checkUnitHistory = useCallback(async () => {
     try {
-      console.log('🔍 Checking transactions for unit:', unit._id);
-      const response = await api.get(`/payments?unitId=${unit._id}`);
-      const hasPayments = response.data && response.data.length > 0;
-      console.log('📊 Transactions found:', hasPayments, 'Count:', response.data?.length || 0);
+      console.log('🔍 Checking history for unit:', unit._id);
+      
+      // Check for payments
+      const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
+      const hasPayments = paymentsResponse.data && paymentsResponse.data.length > 0;
+      console.log('📊 Transactions found:', hasPayments, 'Count:', paymentsResponse.data?.length || 0);
       setHasTransactions(hasPayments);
+      
+      // Check for leases/agreements
+      const leasesResponse = await api.get(`/move-in/leases?unitId=${unit._id}`);
+      const hasPreviousLeases = leasesResponse.data && leasesResponse.data.length > 0;
+      console.log('📋 Leases found:', hasPreviousLeases, 'Count:', leasesResponse.data?.length || 0);
+      setHasLeases(hasPreviousLeases);
     } catch (error) {
-      console.error('❌ Error checking transactions:', error);
+      console.error('❌ Error checking unit history:', error);
       setHasTransactions(false);
+      setHasLeases(false);
     } finally {
       setLoading(false);
     }
   }, [unit._id]);
 
   useEffect(() => {
-    checkTransactions();
-  }, [checkTransactions]);
+    checkUnitHistory();
+  }, [checkUnitHistory]);
 
-  // Only allow editing for AVAILABLE and MAINTENANCE status AND no previous transactions
+  // Only allow editing for AVAILABLE and MAINTENANCE status AND no previous transactions or leases
   const statusAllowed = unit.status === 'AVAILABLE' || unit.status === 'MAINTENANCE';
-  const isEnabled = statusAllowed && !hasTransactions;
+  const hasHistory = hasTransactions || hasLeases;
+  const isEnabled = statusAllowed && !hasHistory;
   
   console.log('🔘 Unit Edit Button State:', {
     unitId: unit._id,
     status: unit.status,
     statusAllowed,
     hasTransactions,
+    hasLeases,
+    hasHistory,
     isEnabled,
     loading
   });
@@ -169,7 +182,9 @@ const EditUnitButton = ({ unit, onEdit }) => {
           : 'bg-blue-500 hover:bg-blue-600'
       }`}
       title={
-        hasTransactions
+        hasLeases
+          ? 'Cannot edit unit with previous lease/agreement history'
+          : hasTransactions
           ? 'Cannot edit unit with transaction history'
           : !statusAllowed
           ? 'Unit can only be edited when status is Available or Maintenance'
@@ -506,8 +521,18 @@ export default function PropertiesPage() {
   };
 
   const editUnit = async (unit) => {
-    // Check if unit has any transactions
+    // Check if unit has any leases or transactions
     try {
+      // Check for leases first (higher priority)
+      const leasesResponse = await api.get(`/move-in/leases?unitId=${unit._id}`);
+      const hasLeases = leasesResponse.data && leasesResponse.data.length > 0;
+      
+      if (hasLeases) {
+        toast.error('Cannot edit unit with previous lease/agreement history. This unit has historical records that must be preserved.');
+        return;
+      }
+      
+      // Check for transactions
       const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
       const hasTransactions = paymentsResponse.data && paymentsResponse.data.length > 0;
       
@@ -516,7 +541,7 @@ export default function PropertiesPage() {
         return;
       }
     } catch (error) {
-      console.error('Error checking transactions:', error);
+      console.error('Error checking unit history:', error);
     }
     
     // Only allow editing for AVAILABLE and MAINTENANCE status
