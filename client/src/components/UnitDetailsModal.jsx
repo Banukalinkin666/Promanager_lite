@@ -45,27 +45,43 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
     if (!lease) return;
     
     try {
-      // Create the PDF URL with authentication
       const token = localStorage.getItem('token');
-      const pdfUrl = `/api/move-in/agreement/${lease._id}?token=${token}`;
       
-      // Open PDF in new window
-      const newWindow = window.open(pdfUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      // Fetch the PDF with proper authentication
+      const response = await fetch(`/api/move-in/agreement/${lease._id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to download PDF: ${response.status}`);
+      }
+      
+      // Get the PDF blob
+      const blob = await response.blob();
+      
+      // Create a URL for the blob
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Open in new window
+      const newWindow = window.open(blobUrl, '_blank');
       
       if (!newWindow) {
-        // If popup was blocked, try direct download
+        // If popup was blocked, download the file
         const link = document.createElement('a');
-        link.href = pdfUrl;
+        link.href = blobUrl;
         link.download = `rent-agreement-${lease.agreementNumber}.pdf`;
-        link.target = '_blank';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        alert('Popup was blocked. PDF will be downloaded instead.');
+        window.URL.revokeObjectURL(blobUrl);
+        alert('Popup was blocked. PDF has been downloaded instead.');
       }
     } catch (error) {
-      console.error('Error opening PDF:', error);
-      alert('Failed to open agreement PDF.');
+      console.error('Error downloading agreement:', error);
+      alert('Failed to download rent agreement. Please try again.');
     }
   };
 
