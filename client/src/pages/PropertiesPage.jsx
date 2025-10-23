@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Home, Edit, Trash2, Eye, FileText, Plus, 
@@ -115,26 +115,37 @@ const EditUnitButton = ({ unit, onEdit }) => {
   const [hasTransactions, setHasTransactions] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkTransactions();
-  }, [unit._id]);
-
-  const checkTransactions = async () => {
+  const checkTransactions = useCallback(async () => {
     try {
+      console.log('🔍 Checking transactions for unit:', unit._id);
       const response = await api.get(`/payments?unitId=${unit._id}`);
       const hasPayments = response.data && response.data.length > 0;
+      console.log('📊 Transactions found:', hasPayments, 'Count:', response.data?.length || 0);
       setHasTransactions(hasPayments);
     } catch (error) {
-      console.error('Error checking transactions:', error);
+      console.error('❌ Error checking transactions:', error);
       setHasTransactions(false);
     } finally {
       setLoading(false);
     }
-  };
+  }, [unit._id]);
+
+  useEffect(() => {
+    checkTransactions();
+  }, [checkTransactions]);
 
   // Only allow editing for AVAILABLE and MAINTENANCE status AND no previous transactions
   const statusAllowed = unit.status === 'AVAILABLE' || unit.status === 'MAINTENANCE';
   const isEnabled = statusAllowed && !hasTransactions;
+  
+  console.log('🔘 Unit Edit Button State:', {
+    unitId: unit._id,
+    status: unit.status,
+    statusAllowed,
+    hasTransactions,
+    isEnabled,
+    loading
+  });
 
   if (loading) {
     return (
