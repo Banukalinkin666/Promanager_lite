@@ -272,33 +272,40 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
                       <span className="ml-2 text-gray-600 dark:text-gray-400">Loading lease history...</span>
                     </div>
                   ) : leaseHistory.length > 0 ? (
-                    leaseHistory.map((lease, index) => (
-                      <div 
-                        key={lease._id}
-                        className={`p-4 rounded-lg border ${
-                          lease.status === 'ACTIVE' 
-                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                            : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            {lease.status === 'ACTIVE' ? (
-                              <CheckCircle size={18} className="text-green-600 dark:text-green-400" />
-                            ) : (
-                              <AlertCircle size={18} className="text-gray-500" />
-                            )}
-                            <span className="font-medium text-gray-900 dark:text-white">
-                              Agreement #{lease.agreementNumber}
-                            </span>
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              lease.status === 'ACTIVE'
-                                ? 'bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200'
-                                : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-400'
-                            }`}>
-                              {lease.status === 'ACTIVE' ? 'Active' : 'Ended'}
-                            </span>
-                          </div>
+                    leaseHistory.map((lease, index) => {
+                      // Check if lease has ended based on leaseEndDate
+                      const leaseEndDate = new Date(lease.leaseEndDate);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0); // Reset time for accurate date comparison
+                      const isLeaseActive = leaseEndDate >= today;
+                      
+                      return (
+                        <div 
+                          key={lease._id}
+                          className={`p-4 rounded-lg border ${
+                            isLeaseActive 
+                              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              {isLeaseActive ? (
+                                <CheckCircle size={18} className="text-green-600 dark:text-green-400" />
+                              ) : (
+                                <AlertCircle size={18} className="text-gray-500" />
+                              )}
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                Agreement #{lease.agreementNumber}
+                              </span>
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                isLeaseActive
+                                  ? 'bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200'
+                                  : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-400'
+                              }`}>
+                                {isLeaseActive ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
                           {lease.agreementPdfPath && (
                             <button
                               onClick={() => downloadAgreement(lease)}
@@ -357,7 +364,8 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
                           </div>
                         )}
                       </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                       No lease history found for this unit.
