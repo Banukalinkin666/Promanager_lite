@@ -305,7 +305,7 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
                           }`}
                         >
                           <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {isLeaseActive ? (
                                 <CheckCircle size={18} className="text-green-600 dark:text-green-400" />
                               ) : (
@@ -321,6 +321,12 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
                               }`}>
                                 {isLeaseActive ? 'Active' : 'Inactive'}
                               </span>
+                              {/* Show "Current Lease" badge for active leases */}
+                              {isLeaseActive && unit.status === 'OCCUPIED' && (
+                                <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-semibold">
+                                  Current Lease
+                                </span>
+                              )}
                             </div>
                           {lease.agreementPdfPath && (
                             <button
