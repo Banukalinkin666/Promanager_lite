@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
+import PDFDocument from 'pdfkit';
 import { authenticate, authorize } from '../middleware/auth.js';
 import Property from '../models/Property.js';
 import User from '../models/User.js';
@@ -12,6 +13,31 @@ import { generateRentAgreementPDF, streamRentAgreementPDF } from '../services/pd
 import documentUpload, { USE_CLOUD_STORAGE } from '../middleware/documentUpload.js';
 
 const router = express.Router();
+
+// Test PDF generation endpoint - NO authentication required for testing
+router.get('/test-pdf', (req, res) => {
+  console.log('🧪 Test PDF endpoint hit!');
+  try {
+    const doc = new PDFDocument();
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="test.pdf"');
+    
+    doc.pipe(res);
+    
+    doc.fontSize(20).text('Test PDF Generation', 100, 100);
+    doc.fontSize(12).text('If you see this, PDF streaming works!', 100, 150);
+    doc.fontSize(12).text('Date: ' + new Date().toLocaleString(), 100, 200);
+    
+    doc.end();
+    console.log('✅ Test PDF streamed successfully');
+  } catch (error) {
+    console.error('❌ Test PDF error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
 
 // Generate rent payment records for a lease
 const generateRentPayments = async (lease, property, unit) => {
