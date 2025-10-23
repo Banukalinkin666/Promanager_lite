@@ -273,20 +273,26 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
                     </div>
                   ) : leaseHistory.length > 0 ? (
                     leaseHistory.map((lease, index) => {
-                      // Check if lease has ended based on leaseEndDate
+                      // Check if lease is active based on status field and date
+                      // Lease is active if:
+                      // 1. Status is 'ACTIVE' (not TERMINATED or EXPIRED)
+                      // 2. AND leaseEndDate hasn't passed yet
                       const leaseEndDate = new Date(lease.leaseEndDate);
                       const today = new Date();
                       today.setHours(0, 0, 0, 0); // Reset time for accurate date comparison
-                      const isLeaseActive = leaseEndDate >= today;
+                      const isLeaseActive = lease.status === 'ACTIVE' && leaseEndDate >= today;
                       
                       console.log('📅 Lease Status Check:', {
                         agreementNumber: lease.agreementNumber,
+                        status: lease.status,
                         leaseEndDate: leaseEndDate.toLocaleDateString(),
                         today: today.toLocaleDateString(),
-                        leaseEndDateTimestamp: leaseEndDate.getTime(),
-                        todayTimestamp: today.getTime(),
                         isLeaseActive,
-                        rawLeaseEndDate: lease.leaseEndDate
+                        reason: lease.status !== 'ACTIVE' 
+                          ? 'Lease terminated/expired' 
+                          : leaseEndDate < today 
+                            ? 'End date passed' 
+                            : 'Active'
                       });
                       
                       return (

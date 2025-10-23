@@ -375,7 +375,10 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
       status: 'SUCCEEDED'
     });
 
-    if (payments.length > 0) {
+    // If only updating status (e.g., marking as TERMINATED), allow it even with collected rent
+    const isStatusOnlyUpdate = updates.status && Object.keys(updates).length === 1;
+
+    if (payments.length > 0 && !isStatusOnlyUpdate) {
       return res.status(400).json({ 
         message: 'Cannot edit lease after rent has been collected' 
       });
@@ -390,6 +393,11 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
       terms: updates.terms,
       notes: updates.notes
     };
+    
+    // Include status if provided (for terminating leases)
+    if (updates.status) {
+      updateData.status = updates.status;
+    }
     
     // Include documents if provided
     if (updates.documents) {

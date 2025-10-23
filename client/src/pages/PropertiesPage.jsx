@@ -704,6 +704,19 @@ export default function PropertiesPage() {
     if (!unitToEndLease) return;
 
     try {
+      // Find and update the active lease for this unit to TERMINATED status
+      const leasesResponse = await api.get(`/move-in/leases?unitId=${unitToEndLease._id}`);
+      const activeLeases = leasesResponse.data?.filter(lease => lease.status === 'ACTIVE');
+      
+      if (activeLeases && activeLeases.length > 0) {
+        const activeLease = activeLeases[0];
+        // Update lease status to TERMINATED (status-only update)
+        await api.put(`/move-in/leases/${activeLease._id}`, {
+          status: 'TERMINATED'
+        });
+        console.log('✅ Lease marked as TERMINATED:', activeLease._id);
+      }
+
       // Update unit status to AVAILABLE
       await api.put(`/properties/${selectedProperty._id}/units/${unitToEndLease._id}`, {
         status: 'AVAILABLE',
