@@ -112,8 +112,41 @@ const DeleteUnitButton = ({ unit, onDelete }) => {
 
 // Edit Unit Button Component
 const EditUnitButton = ({ unit, onEdit }) => {
-  // Only allow editing for AVAILABLE and MAINTENANCE status
-  const isEnabled = unit.status === 'AVAILABLE' || unit.status === 'MAINTENANCE';
+  const [hasTransactions, setHasTransactions] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkTransactions();
+  }, [unit._id]);
+
+  const checkTransactions = async () => {
+    try {
+      const response = await api.get(`/payments?unitId=${unit._id}`);
+      const hasPayments = response.data && response.data.length > 0;
+      setHasTransactions(hasPayments);
+    } catch (error) {
+      console.error('Error checking transactions:', error);
+      setHasTransactions(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Only allow editing for AVAILABLE and MAINTENANCE status AND no previous transactions
+  const statusAllowed = unit.status === 'AVAILABLE' || unit.status === 'MAINTENANCE';
+  const isEnabled = statusAllowed && !hasTransactions;
+
+  if (loading) {
+    return (
+      <button
+        disabled
+        className="px-3 py-1 bg-gray-400 text-white text-xs rounded-lg cursor-not-allowed flex items-center gap-1"
+      >
+        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+        ...
+      </button>
+    );
+  }
 
   return (
     <button
@@ -125,7 +158,9 @@ const EditUnitButton = ({ unit, onEdit }) => {
           : 'bg-blue-500 hover:bg-blue-600'
       }`}
       title={
-        !isEnabled
+        hasTransactions
+          ? 'Cannot edit unit with transaction history'
+          : !statusAllowed
           ? 'Unit can only be edited when status is Available or Maintenance'
           : 'Edit Unit Details'
       }
@@ -459,7 +494,20 @@ export default function PropertiesPage() {
     setShowUnitForm(false);
   };
 
-  const editUnit = (unit) => {
+  const editUnit = async (unit) => {
+    // Check if unit has any transactions
+    try {
+      const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
+      const hasTransactions = paymentsResponse.data && paymentsResponse.data.length > 0;
+      
+      if (hasTransactions) {
+        toast.error('Cannot edit unit with transaction history. This unit has payment records that must be preserved.');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking transactions:', error);
+    }
+    
     // Only allow editing for AVAILABLE and MAINTENANCE status
     if (unit.status !== 'AVAILABLE' && unit.status !== 'MAINTENANCE') {
       toast.error('Unit can only be edited when status is Available or Maintenance.');
