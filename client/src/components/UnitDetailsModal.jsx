@@ -365,15 +365,13 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
                                 </span>
                               )}
                             </div>
-                          {lease.agreementPdfPath && (
-                            <button
-                              onClick={() => downloadAgreement(lease)}
-                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-                            >
-                              <Download size={12} />
-                              PDF
-                            </button>
-                          )}
+                          <button
+                            onClick={() => downloadAgreement(lease)}
+                            className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                          >
+                            <Download size={12} />
+                            PDF
+                          </button>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
