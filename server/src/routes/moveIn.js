@@ -365,6 +365,20 @@ router.get('/agreement/:leaseId', authenticate, async (req, res) => {
 
     console.log('Sending PDF file:', filePath);
     
+    // Verify file exists before sending
+    const fs = await import('fs');
+    if (!fs.default.existsSync(filePath)) {
+      throw new Error(`PDF file not found at path: ${filePath}`);
+    }
+    
+    // Check file size
+    const stats = fs.default.statSync(filePath);
+    console.log('PDF file size:', stats.size, 'bytes');
+    
+    if (stats.size === 0) {
+      throw new Error('PDF file is empty');
+    }
+    
     // Set headers for PDF viewing in browser
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="rent-agreement-${lease.agreementNumber}.pdf"`);

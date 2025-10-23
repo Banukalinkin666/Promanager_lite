@@ -18,8 +18,9 @@ export const generateRentAgreement = async (leaseData) => {
   const fileName = `rent-agreement-${leaseData.agreementNumber}.pdf`;
   const filePath = path.join(agreementsDir, fileName);
   
-  // Pipe the PDF to a file
-  doc.pipe(fs.createWriteStream(filePath));
+  // Create a write stream for the PDF
+  const writeStream = fs.createWriteStream(filePath);
+  doc.pipe(writeStream);
   
   // Header
   doc.fontSize(20).font('Helvetica-Bold')
@@ -146,9 +147,10 @@ export const generateRentAgreement = async (leaseData) => {
   // Finalize the PDF
   doc.end();
   
-  // Return a promise that resolves when the PDF is written
+  // Return a promise that resolves when the PDF is fully written
   return new Promise((resolve, reject) => {
-    doc.on('end', () => {
+    writeStream.on('finish', () => {
+      console.log('✅ PDF written successfully:', filePath);
       resolve({
         filePath,
         fileName,
@@ -156,6 +158,14 @@ export const generateRentAgreement = async (leaseData) => {
       });
     });
     
-    doc.on('error', reject);
+    writeStream.on('error', (error) => {
+      console.error('❌ PDF write error:', error);
+      reject(error);
+    });
+    
+    doc.on('error', (error) => {
+      console.error('❌ PDF generation error:', error);
+      reject(error);
+    });
   });
 };
