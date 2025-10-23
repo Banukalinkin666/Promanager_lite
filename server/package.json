@@ -8,7 +8,8 @@
     "dev": "nodemon src/app.js",
     "seed": "node src/seed/seed.js",
     "fix-images": "node fix-image-paths.js",
-    "fix-leases": "node scripts/fix-old-leases.js"
+    "fix-leases": "node scripts/fix-old-leases.js",
+    "delete-unit-100-leases": "node scripts/delete-unit-100-leases.js"
   },
   "dependencies": {
     "express": "^4.18.2",
