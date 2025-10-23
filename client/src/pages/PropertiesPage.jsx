@@ -710,9 +710,10 @@ export default function PropertiesPage() {
       
       if (activeLeases && activeLeases.length > 0) {
         const activeLease = activeLeases[0];
-        // Update lease status to TERMINATED (status-only update)
+        // Update lease status to TERMINATED with termination date
         await api.put(`/move-in/leases/${activeLease._id}`, {
-          status: 'TERMINATED'
+          status: 'TERMINATED',
+          terminatedDate: new Date().toISOString()
         });
         console.log('✅ Lease marked as TERMINATED:', activeLease._id);
       }

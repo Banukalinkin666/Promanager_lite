@@ -21,6 +21,7 @@ const LeaseSchema = new mongoose.Schema(
       enum: ['ACTIVE', 'EXPIRED', 'TERMINATED'], 
       default: 'ACTIVE' 
     },
+    terminatedDate: { type: Date }, // Date when lease was manually terminated
     
     // Uploaded documents
     documents: {

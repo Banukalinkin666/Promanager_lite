@@ -356,8 +356,11 @@ router.post('/fix-terminated-leases', authenticate, authorize('OWNER', 'ADMIN'),
             console.log(`📋 Found ${activeLeases.length} active lease(s) for AVAILABLE unit ${unit._id}`);
             
             for (const lease of activeLeases) {
-              // Update lease status to TERMINATED
-              await Lease.findByIdAndUpdate(lease._id, { status: 'TERMINATED' });
+              // Update lease status to TERMINATED with termination date
+              await Lease.findByIdAndUpdate(lease._id, { 
+                status: 'TERMINATED',
+                terminatedDate: new Date() // Set termination date to now
+              });
               console.log(`  ✅ Marked lease ${lease._id} as TERMINATED`);
               fixedCount++;
             }
@@ -419,7 +422,7 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
     });
 
     // If only updating status (e.g., marking as TERMINATED), allow it even with collected rent
-    const isStatusOnlyUpdate = updates.status && Object.keys(updates).length === 1;
+    const isStatusOnlyUpdate = updates.status && (Object.keys(updates).length === 1 || (Object.keys(updates).length === 2 && updates.terminatedDate));
 
     if (payments.length > 0 && !isStatusOnlyUpdate) {
       return res.status(400).json({ 
@@ -440,6 +443,11 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
     // Include status if provided (for terminating leases)
     if (updates.status) {
       updateData.status = updates.status;
+    }
+    
+    // Include terminatedDate if provided
+    if (updates.terminatedDate) {
+      updateData.terminatedDate = updates.terminatedDate;
     }
     
     // Include documents if provided

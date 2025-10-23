@@ -354,6 +354,28 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
                               </span>
                             </div>
                           )}
+                          {/* Show termination or end date for inactive leases */}
+                          {!isLeaseActive && (
+                            <div className="col-span-2">
+                              {lease.status === 'TERMINATED' && lease.terminatedDate ? (
+                                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                                  <AlertCircle size={14} />
+                                  <span className="text-gray-600 dark:text-gray-400">Terminated:</span>
+                                  <span className="font-medium">
+                                    {new Date(lease.terminatedDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              ) : leaseEndDate < today ? (
+                                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                  <Clock size={14} />
+                                  <span>Lease Ended:</span>
+                                  <span className="font-medium">
+                                    {new Date(lease.leaseEndDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
                           {lease.moveOutDate && (
                             <div>
                               <span className="text-gray-600 dark:text-gray-400">Move-out:</span>
