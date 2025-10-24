@@ -238,7 +238,12 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
       toast.success(`${file.name} uploaded successfully`);
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload file');
+      console.error('Error response:', error.response?.data);
+      
+      // Show detailed error message from server
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload file';
+      toast.error(errorMessage);
+      
       setUploadProgress(prev => ({ ...prev, [field]: null }));
     }
   };
