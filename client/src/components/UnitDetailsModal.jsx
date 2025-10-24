@@ -54,8 +54,11 @@ const UnitDetailsModal = ({ unit, property, isOpen, onClose }) => {
       loadingToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#4CAF50;color:white;padding:12px 24px;border-radius:8px;z-index:10000;';
       document.body.appendChild(loadingToast);
       
+      // Get the backend URL from environment or construct it
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+      
       // Fetch the PDF with proper authentication
-      const response = await fetch(`/api/move-in/agreement/${lease._id}`, {
+      const response = await fetch(`${backendUrl}/move-in/agreement/${lease._id}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
