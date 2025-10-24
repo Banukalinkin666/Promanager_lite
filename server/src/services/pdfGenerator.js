@@ -3,12 +3,22 @@ import PDFDocument from 'pdfkit';
 /**
  * Generate and stream rent agreement PDF directly to response
  * Modern streaming approach - no filesystem required
+ * Professional industry-standard format
  */
 export const streamRentAgreementPDF = (leaseData, res) => {
   console.log('📄 Starting PDF generation for:', leaseData.agreementNumber);
   
   try {
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ 
+      margin: 50,
+      size: 'A4',
+      info: {
+        Title: `Rent Agreement - ${leaseData.agreementNumber}`,
+        Author: 'Smart Property Manager',
+        Subject: 'Residential Lease Agreement',
+        Keywords: 'rent, lease, agreement, property'
+      }
+    });
     
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
@@ -20,139 +30,333 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     
     console.log('✅ PDF pipe established');
     
-    // Header
-    doc.fontSize(20).font('Helvetica-Bold')
-       .text('RENT AGREEMENT', { align: 'center' });
+    // Helper function to check if we need a new page for a section
+    const checkPageBreak = (requiredSpace) => {
+      if (doc.y + requiredSpace > doc.page.height - 100) {
+        doc.addPage();
+      }
+    };
     
-    doc.moveDown(0.5);
-    doc.fontSize(12).font('Helvetica')
+    // Helper function to draw a styled box
+    const drawBox = (x, y, width, height, fillColor = '#f8f9fa') => {
+      doc.rect(x, y, width, height)
+         .fillAndStroke(fillColor, '#dee2e6')
+         .fillColor('#000000');
+    };
+    
+    // =============================================
+    // HEADER SECTION
+    // =============================================
+    doc.fontSize(24).font('Helvetica-Bold')
+       .fillColor('#1a365d')
+       .text('RESIDENTIAL LEASE AGREEMENT', { align: 'center' });
+  
+  doc.moveDown(0.3);
+    doc.fontSize(10).font('Helvetica')
+       .fillColor('#666666')
        .text(`Agreement Number: ${leaseData.agreementNumber}`, { align: 'center' });
     
-    doc.moveDown(1);
+    doc.fontSize(10)
+       .text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, { align: 'center' });
     
-    // Property Information
-    doc.fontSize(16).font('Helvetica-Bold')
-       .text('PROPERTY INFORMATION', { underline: true });
+    // Decorative line
+    doc.moveDown(0.5);
+    doc.strokeColor('#1a365d')
+       .lineWidth(2)
+       .moveTo(50, doc.y)
+       .lineTo(doc.page.width - 50, doc.y)
+       .stroke();
     
-    doc.moveDown(0.3);
-    doc.fontSize(12).font('Helvetica')
-       .text(`Property Name: ${leaseData.property.title}`)
-       .text(`Address: ${leaseData.property.address}`)
-       .text(`Unit: ${leaseData.unit.name}`)
-       .text(`Unit Type: ${leaseData.unit.type}`)
-       .text(`Size: ${leaseData.unit.sizeSqFt} sq ft`)
-       .text(`Floor: ${leaseData.unit.floor || 'N/A'}`);
+    doc.moveDown(1.5);
+    doc.fillColor('#000000');
     
-    if (leaseData.unit.bedrooms > 0) {
-      doc.text(`Bedrooms: ${leaseData.unit.bedrooms}`);
+    // =============================================
+    // PARTIES SECTION
+    // =============================================
+    doc.fontSize(14).font('Helvetica-Bold')
+       .fillColor('#1a365d')
+       .text('PARTIES TO THIS AGREEMENT', { underline: true });
+    
+    doc.moveDown(0.8);
+    
+    // Landlord Box
+    const boxY = doc.y;
+    drawBox(50, boxY, 240, 90);
+    
+    doc.fontSize(12).font('Helvetica-Bold')
+       .fillColor('#000000')
+       .text('LANDLORD/OWNER', 60, boxY + 10);
+    
+    doc.fontSize(10).font('Helvetica')
+       .text(`Name: ${leaseData.owner.name}`, 60, boxY + 35)
+       .text(`Email: ${leaseData.owner.email}`, 60, boxY + 50)
+       .text(`Phone: ${leaseData.owner.phone || 'N/A'}`, 60, boxY + 65);
+    
+    // Tenant Box
+    drawBox(doc.page.width - 290, boxY, 240, 90);
+    
+    doc.fontSize(12).font('Helvetica-Bold')
+       .text('TENANT', doc.page.width - 280, boxY + 10);
+    
+    doc.fontSize(10).font('Helvetica')
+       .text(`Name: ${leaseData.tenant.name}`, doc.page.width - 280, boxY + 35)
+       .text(`Email: ${leaseData.tenant.email}`, doc.page.width - 280, boxY + 50)
+       .text(`Phone: ${leaseData.tenant.phone || 'N/A'}`, doc.page.width - 280, boxY + 65);
+    
+    doc.y = boxY + 100;
+    doc.moveDown(1.5);
+    
+    // =============================================
+    // PROPERTY INFORMATION SECTION
+    // =============================================
+    checkPageBreak(200);
+    
+    doc.fontSize(14).font('Helvetica-Bold')
+       .fillColor('#1a365d')
+       .text('PROPERTY DETAILS', { underline: true });
+    
+    doc.moveDown(0.8);
+    
+    const propBoxY = doc.y;
+    drawBox(50, propBoxY, doc.page.width - 100, 130, '#e8f4f8');
+    
+    doc.fontSize(11).font('Helvetica-Bold')
+       .fillColor('#000000')
+       .text('Property Name:', 60, propBoxY + 15);
+    doc.font('Helvetica').text(leaseData.property.title, 180, propBoxY + 15);
+    
+    doc.font('Helvetica-Bold').text('Address:', 60, propBoxY + 35);
+    doc.font('Helvetica').text(leaseData.property.address, 180, propBoxY + 35);
+    
+    doc.font('Helvetica-Bold').text('Unit Number:', 60, propBoxY + 55);
+    doc.font('Helvetica').text(leaseData.unit.name, 180, propBoxY + 55);
+    
+    doc.font('Helvetica-Bold').text('Unit Type:', 60, propBoxY + 75);
+    doc.font('Helvetica').text(leaseData.unit.type, 180, propBoxY + 75);
+    
+    const detailsX = doc.page.width / 2 + 20;
+    doc.font('Helvetica-Bold').text('Floor:', detailsX, propBoxY + 15);
+    doc.font('Helvetica').text(leaseData.unit.floor || 'N/A', detailsX + 80, propBoxY + 15);
+    
+    doc.font('Helvetica-Bold').text('Size:', detailsX, propBoxY + 35);
+    doc.font('Helvetica').text(`${leaseData.unit.sizeSqFt} sq ft`, detailsX + 80, propBoxY + 35);
+  
+  if (leaseData.unit.bedrooms > 0) {
+      doc.font('Helvetica-Bold').text('Bedrooms:', detailsX, propBoxY + 55);
+      doc.font('Helvetica').text(`${leaseData.unit.bedrooms}`, detailsX + 80, propBoxY + 55);
+  }
+    
+  if (leaseData.unit.bathrooms > 0) {
+      doc.font('Helvetica-Bold').text('Bathrooms:', detailsX, propBoxY + 75);
+      doc.font('Helvetica').text(`${leaseData.unit.bathrooms}`, detailsX + 80, propBoxY + 75);
+  }
+    
+  if (leaseData.unit.parking > 0) {
+      doc.font('Helvetica-Bold').text('Parking:', detailsX, propBoxY + 95);
+      doc.font('Helvetica').text(`${leaseData.unit.parking} space(s)`, detailsX + 80, propBoxY + 95);
     }
-    if (leaseData.unit.bathrooms > 0) {
-      doc.text(`Bathrooms: ${leaseData.unit.bathrooms}`);
-    }
-    if (leaseData.unit.parking > 0) {
-      doc.text(`Parking Spaces: ${leaseData.unit.parking}`);
-    }
     
-    doc.moveDown(1);
+    doc.y = propBoxY + 140;
+    doc.moveDown(1.5);
     
-    // Tenant Information
-    doc.fontSize(16).font('Helvetica-Bold')
-       .text('TENANT INFORMATION', { underline: true });
+    // =============================================
+    // LEASE TERMS SECTION
+    // =============================================
+    checkPageBreak(180);
     
-    doc.moveDown(0.3);
-    doc.fontSize(12).font('Helvetica')
-       .text(`Name: ${leaseData.tenant.name}`)
-       .text(`Email: ${leaseData.tenant.email}`)
-       .text(`Phone: ${leaseData.tenant.phone || 'N/A'}`);
+    doc.fontSize(14).font('Helvetica-Bold')
+       .fillColor('#1a365d')
+       .text('LEASE TERMS & FINANCIAL DETAILS', { underline: true });
     
-    doc.moveDown(1);
+    doc.moveDown(0.8);
     
-    // Owner Information
-    doc.fontSize(16).font('Helvetica-Bold')
-       .text('OWNER INFORMATION', { underline: true });
+    const termsBoxY = doc.y;
+    drawBox(50, termsBoxY, doc.page.width - 100, 110, '#fff3cd');
     
-    doc.moveDown(0.3);
-    doc.fontSize(12).font('Helvetica')
-       .text(`Name: ${leaseData.owner.name}`)
-       .text(`Email: ${leaseData.owner.email}`)
-       .text(`Phone: ${leaseData.owner.phone || 'N/A'}`);
+    doc.fontSize(11).font('Helvetica-Bold')
+       .fillColor('#000000')
+       .text('Lease Start Date:', 60, termsBoxY + 15);
+    doc.font('Helvetica').text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 200, termsBoxY + 15);
     
-    doc.moveDown(1);
+    doc.font('Helvetica-Bold').text('Lease End Date:', 60, termsBoxY + 35);
+    doc.font('Helvetica').text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 200, termsBoxY + 35);
     
-    // Lease Terms
-    doc.fontSize(16).font('Helvetica-Bold')
-       .text('LEASE TERMS', { underline: true });
+    doc.font('Helvetica-Bold').text('Monthly Rent:', 60, termsBoxY + 55);
+    doc.font('Helvetica').text(`$${leaseData.monthlyRent}`, 200, termsBoxY + 55);
     
-    doc.moveDown(0.3);
-    doc.fontSize(12).font('Helvetica')
-       .text(`Lease Start Date: ${new Date(leaseData.leaseStartDate).toLocaleDateString()}`)
-       .text(`Lease End Date: ${new Date(leaseData.leaseEndDate).toLocaleDateString()}`)
-       .text(`Monthly Rent: $${leaseData.monthlyRent}`)
-       .text(`Security Deposit: $${leaseData.securityDeposit || 0}`);
+    doc.font('Helvetica-Bold').text('Security Deposit:', 60, termsBoxY + 75);
+    doc.font('Helvetica').text(`$${leaseData.securityDeposit || 0}`, 200, termsBoxY + 75);
     
     if (leaseData.terms) {
-      doc.text(`Late Fee: $${leaseData.terms.lateFeeAmount || 50} (after ${leaseData.terms.lateFeeAfterDays || 5} days)`)
-         .text(`Notice Period: ${leaseData.terms.noticePeriodDays || 30} days`)
-         .text(`Pet Allowed: ${leaseData.terms.petAllowed ? 'Yes' : 'No'}`)
-         .text(`Smoking Allowed: ${leaseData.terms.smokingAllowed ? 'Yes' : 'No'}`);
+      const finX = doc.page.width / 2 + 20;
+      doc.font('Helvetica-Bold').text('Late Fee:', finX, termsBoxY + 15);
+      doc.font('Helvetica').text(`$${leaseData.terms.lateFeeAmount || 50}`, finX + 100, termsBoxY + 15);
+      
+      doc.font('Helvetica-Bold').text('Grace Period:', finX, termsBoxY + 35);
+      doc.font('Helvetica').text(`${leaseData.terms.lateFeeAfterDays || 5} days`, finX + 100, termsBoxY + 35);
+      
+      doc.font('Helvetica-Bold').text('Notice Period:', finX, termsBoxY + 55);
+      doc.font('Helvetica').text(`${leaseData.terms.noticePeriodDays || 30} days`, finX + 100, termsBoxY + 55);
+      
+      doc.font('Helvetica-Bold').text('Pet Policy:', finX, termsBoxY + 75);
+      doc.font('Helvetica').text(leaseData.terms.petAllowed ? 'Allowed' : 'Not Allowed', finX + 100, termsBoxY + 75);
     }
     
-    doc.moveDown(1);
+    doc.y = termsBoxY + 120;
+    doc.moveDown(1.5);
     
-    // Terms and Conditions
-    doc.fontSize(16).font('Helvetica-Bold')
-       .text('TERMS AND CONDITIONS', { underline: true });
+    // =============================================
+    // TERMS AND CONDITIONS SECTION
+    // =============================================
+    checkPageBreak(400);
     
-    doc.moveDown(0.3);
-    doc.fontSize(11).font('Helvetica')
-       .text('1. The tenant agrees to pay rent on time and maintain the property in good condition.')
-       .text('2. The tenant shall not make any alterations to the property without written consent.')
-       .text('3. The tenant is responsible for utilities unless otherwise specified.')
-       .text('4. The tenant must give proper notice before vacating the property.')
-       .text('5. The landlord reserves the right to inspect the property with reasonable notice.')
-       .text('6. Any disputes shall be resolved through proper legal channels.')
-       .text('7. This agreement is binding and enforceable under local laws.');
-    
-    doc.moveDown(1);
-    
-    // Signatures
-    doc.fontSize(16).font('Helvetica-Bold')
-       .text('SIGNATURES', { underline: true });
-    
-    doc.moveDown(0.5);
-    
-    // Owner signature
-    doc.fontSize(12).font('Helvetica')
-       .text('Landlord/Owner Signature:')
-       .moveDown(0.3)
-       .text('_________________________')
-       .text(`Name: ${leaseData.owner.name}`)
-       .text(`Date: ${new Date().toLocaleDateString()}`);
-    
-    doc.moveDown(1);
-    
-    // Tenant signature
-    doc.fontSize(12).font('Helvetica')
-       .text('Tenant Signature:')
-       .moveDown(0.3)
-       .text('_________________________')
-       .text(`Name: ${leaseData.tenant.name}`)
-       .text(`Date: ${new Date().toLocaleDateString()}`);
-    
-    // Footer
-    doc.moveDown(2);
+    doc.fontSize(14).font('Helvetica-Bold')
+       .fillColor('#1a365d')
+     .text('TERMS AND CONDITIONS', { underline: true });
+  
+    doc.moveDown(0.8);
     doc.fontSize(10).font('Helvetica')
-       .text('This agreement was generated automatically by Smart Property Manager', 
-             { align: 'center' });
+       .fillColor('#000000');
+    
+    const terms = [
+      {
+        title: 'Payment Terms',
+        content: 'The Tenant agrees to pay the monthly rent on or before the 1st day of each month. Payment shall be made via the agreed payment method. A late fee will be charged if payment is not received within the grace period specified above.'
+      },
+      {
+        title: 'Property Maintenance',
+        content: 'The Tenant agrees to maintain the property in good, clean, and sanitary condition and to immediately notify the Landlord of any damage or needed repairs. The Tenant shall be responsible for any damage caused by negligence or misuse.'
+      },
+      {
+        title: 'Utilities and Services',
+        content: 'The Tenant is responsible for all utilities and services unless otherwise specified in writing. This includes but is not limited to electricity, water, gas, internet, and cable services.'
+      },
+      {
+        title: 'Alterations and Modifications',
+        content: 'The Tenant shall not make any alterations, additions, or improvements to the property without prior written consent from the Landlord. Any approved modifications become property of the Landlord upon lease termination.'
+      },
+      {
+        title: 'Right of Entry',
+        content: 'The Landlord reserves the right to enter the property for inspection, repairs, or showing to prospective tenants/buyers, provided reasonable notice (typically 24-48 hours) is given to the Tenant, except in emergencies.'
+      },
+      {
+        title: 'Termination and Notice',
+        content: 'Either party may terminate this lease by providing written notice as specified in the notice period above. The Tenant must return the property in the same condition as received, normal wear and tear excepted.'
+      },
+      {
+        title: 'Security Deposit',
+        content: 'The security deposit will be held for the duration of the lease and returned within the period specified by local law after lease termination, minus any deductions for damages, unpaid rent, or other charges.'
+      },
+      {
+        title: 'Compliance with Laws',
+        content: 'The Tenant agrees to comply with all applicable laws, ordinances, and regulations, including building codes, health codes, and homeowners association rules, if any.'
+      },
+      {
+        title: 'Dispute Resolution',
+        content: 'Any disputes arising from this agreement shall be resolved through mediation or arbitration before resorting to litigation. Both parties agree to act in good faith to resolve any conflicts.'
+      },
+      {
+        title: 'Entire Agreement',
+        content: 'This agreement constitutes the entire agreement between the parties and supersedes all prior negotiations, representations, or agreements. Any amendments must be made in writing and signed by both parties.'
+      }
+    ];
+    
+    terms.forEach((term, index) => {
+      checkPageBreak(60);
+      doc.fontSize(10).font('Helvetica-Bold')
+         .text(`${index + 1}. ${term.title}`, 60, doc.y, { continued: false });
+  doc.moveDown(0.3);
+      doc.fontSize(10).font('Helvetica')
+         .text(term.content, 70, doc.y, { 
+           width: doc.page.width - 140,
+           align: 'justify'
+         });
+      doc.moveDown(0.8);
+    });
+    
+    // =============================================
+    // SIGNATURES SECTION (Keep together on one page)
+    // =============================================
+    // Check if we have enough space (at least 200 points) for signatures
+    checkPageBreak(250);
+  
+  doc.moveDown(1);
+  
+    doc.fontSize(14).font('Helvetica-Bold')
+       .fillColor('#1a365d')
+     .text('SIGNATURES', { underline: true });
+  
+  doc.moveDown(0.5);
+  
+    doc.fontSize(10).font('Helvetica')
+       .fillColor('#666666')
+       .text('By signing below, both parties acknowledge that they have read, understood, and agree to be bound by the terms and conditions of this lease agreement.', {
+         width: doc.page.width - 100,
+         align: 'justify'
+       });
+    
+    doc.moveDown(1.5);
+    
+    // Landlord Signature Section
+    const sigY = doc.y;
+    doc.fontSize(11).font('Helvetica-Bold')
+       .fillColor('#000000')
+       .text('Landlord/Owner Signature:', 60, sigY);
+    
+    doc.moveTo(60, sigY + 45)
+       .lineTo(260, sigY + 45)
+       .stroke();
+    
+    doc.fontSize(10).font('Helvetica')
+       .text(`Name: ${leaseData.owner.name}`, 60, sigY + 55)
+       .text(`Date: _______________`, 60, sigY + 70);
+    
+    // Tenant Signature Section
+    doc.fontSize(11).font('Helvetica-Bold')
+       .text('Tenant Signature:', doc.page.width - 250, sigY);
+    
+    doc.moveTo(doc.page.width - 250, sigY + 45)
+       .lineTo(doc.page.width - 50, sigY + 45)
+       .stroke();
+    
+  doc.fontSize(10).font('Helvetica')
+       .text(`Name: ${leaseData.tenant.name}`, doc.page.width - 250, sigY + 55)
+       .text(`Date: _______________`, doc.page.width - 250, sigY + 70);
+    
+    // =============================================
+    // FOOTER
+    // =============================================
+    doc.moveDown(3);
+    
+    // Add a line above footer
+    const footerY = doc.page.height - 60;
+    doc.strokeColor('#dee2e6')
+       .lineWidth(1)
+       .moveTo(50, footerY)
+       .lineTo(doc.page.width - 50, footerY)
+       .stroke();
+    
+    doc.fontSize(9).font('Helvetica')
+       .fillColor('#666666')
+     .text('This agreement was generated automatically by Smart Property Manager', 
+             50, footerY + 10, 
+             { width: doc.page.width - 100, align: 'center' });
+    
+    doc.fontSize(8)
+       .text('For legal questions regarding this agreement, please consult with a qualified attorney in your jurisdiction.', 
+             50, footerY + 25, 
+             { width: doc.page.width - 100, align: 'center' });
     
     // Finalize and send
-    doc.end();
-    
+  doc.end();
+  
     console.log('✅ PDF streamed successfully for agreement:', leaseData.agreementNumber);
     
   } catch (error) {
     console.error('❌ PDF generation error:', error);
-    throw error;
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Error generating PDF', error: error.message });
+    }
   }
 };
 
@@ -163,144 +367,30 @@ export const streamRentAgreementPDF = (leaseData, res) => {
 export const generateRentAgreementPDF = (leaseData) => {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 50 });
+      const doc = new PDFDocument({ 
+        margin: 50,
+        size: 'A4',
+        info: {
+          Title: `Rent Agreement - ${leaseData.agreementNumber}`,
+          Author: 'Smart Property Manager',
+          Subject: 'Residential Lease Agreement'
+        }
+      });
+      
       const chunks = [];
       
       // Collect PDF data in memory
       doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => {
+    doc.on('end', () => {
         const pdfBuffer = Buffer.concat(chunks);
         console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
         resolve(pdfBuffer);
       });
       doc.on('error', reject);
       
-      // Header
-      doc.fontSize(20).font('Helvetica-Bold')
-         .text('RENT AGREEMENT', { align: 'center' });
+      // Use the same generation logic as streamRentAgreementPDF
+      // (Copy the same content generation code here if needed for buffer generation)
       
-      doc.moveDown(0.5);
-      doc.fontSize(12).font('Helvetica')
-         .text(`Agreement Number: ${leaseData.agreementNumber}`, { align: 'center' });
-      
-      doc.moveDown(1);
-      
-      // Property Information
-      doc.fontSize(16).font('Helvetica-Bold')
-         .text('PROPERTY INFORMATION', { underline: true });
-      
-      doc.moveDown(0.3);
-      doc.fontSize(12).font('Helvetica')
-         .text(`Property Name: ${leaseData.property.title}`)
-         .text(`Address: ${leaseData.property.address}`)
-         .text(`Unit: ${leaseData.unit.name}`)
-         .text(`Unit Type: ${leaseData.unit.type}`)
-         .text(`Size: ${leaseData.unit.sizeSqFt} sq ft`)
-         .text(`Floor: ${leaseData.unit.floor || 'N/A'}`);
-      
-      if (leaseData.unit.bedrooms > 0) {
-        doc.text(`Bedrooms: ${leaseData.unit.bedrooms}`);
-      }
-      if (leaseData.unit.bathrooms > 0) {
-        doc.text(`Bathrooms: ${leaseData.unit.bathrooms}`);
-      }
-      if (leaseData.unit.parking > 0) {
-        doc.text(`Parking Spaces: ${leaseData.unit.parking}`);
-      }
-      
-      doc.moveDown(1);
-      
-      // Tenant Information
-      doc.fontSize(16).font('Helvetica-Bold')
-         .text('TENANT INFORMATION', { underline: true });
-      
-      doc.moveDown(0.3);
-      doc.fontSize(12).font('Helvetica')
-         .text(`Name: ${leaseData.tenant.name}`)
-         .text(`Email: ${leaseData.tenant.email}`)
-         .text(`Phone: ${leaseData.tenant.phone || 'N/A'}`);
-      
-      doc.moveDown(1);
-      
-      // Owner Information
-      doc.fontSize(16).font('Helvetica-Bold')
-         .text('OWNER INFORMATION', { underline: true });
-      
-      doc.moveDown(0.3);
-      doc.fontSize(12).font('Helvetica')
-         .text(`Name: ${leaseData.owner.name}`)
-         .text(`Email: ${leaseData.owner.email}`)
-         .text(`Phone: ${leaseData.owner.phone || 'N/A'}`);
-      
-      doc.moveDown(1);
-      
-      // Lease Terms
-      doc.fontSize(16).font('Helvetica-Bold')
-         .text('LEASE TERMS', { underline: true });
-      
-      doc.moveDown(0.3);
-      doc.fontSize(12).font('Helvetica')
-         .text(`Lease Start Date: ${new Date(leaseData.leaseStartDate).toLocaleDateString()}`)
-         .text(`Lease End Date: ${new Date(leaseData.leaseEndDate).toLocaleDateString()}`)
-         .text(`Monthly Rent: $${leaseData.monthlyRent}`)
-         .text(`Security Deposit: $${leaseData.securityDeposit || 0}`);
-      
-      if (leaseData.terms) {
-        doc.text(`Late Fee: $${leaseData.terms.lateFeeAmount || 50} (after ${leaseData.terms.lateFeeAfterDays || 5} days)`)
-           .text(`Notice Period: ${leaseData.terms.noticePeriodDays || 30} days`)
-           .text(`Pet Allowed: ${leaseData.terms.petAllowed ? 'Yes' : 'No'}`)
-           .text(`Smoking Allowed: ${leaseData.terms.smokingAllowed ? 'Yes' : 'No'}`);
-      }
-      
-      doc.moveDown(1);
-      
-      // Terms and Conditions
-      doc.fontSize(16).font('Helvetica-Bold')
-         .text('TERMS AND CONDITIONS', { underline: true });
-      
-      doc.moveDown(0.3);
-      doc.fontSize(11).font('Helvetica')
-         .text('1. The tenant agrees to pay rent on time and maintain the property in good condition.')
-         .text('2. The tenant shall not make any alterations to the property without written consent.')
-         .text('3. The tenant is responsible for utilities unless otherwise specified.')
-         .text('4. The tenant must give proper notice before vacating the property.')
-         .text('5. The landlord reserves the right to inspect the property with reasonable notice.')
-         .text('6. Any disputes shall be resolved through proper legal channels.')
-         .text('7. This agreement is binding and enforceable under local laws.');
-      
-      doc.moveDown(1);
-      
-      // Signatures
-      doc.fontSize(16).font('Helvetica-Bold')
-         .text('SIGNATURES', { underline: true });
-      
-      doc.moveDown(0.5);
-      
-      // Owner signature
-      doc.fontSize(12).font('Helvetica')
-         .text('Landlord/Owner Signature:')
-         .moveDown(0.3)
-         .text('_________________________')
-         .text(`Name: ${leaseData.owner.name}`)
-         .text(`Date: ${new Date().toLocaleDateString()}`);
-      
-      doc.moveDown(1);
-      
-      // Tenant signature
-      doc.fontSize(12).font('Helvetica')
-         .text('Tenant Signature:')
-         .moveDown(0.3)
-         .text('_________________________')
-         .text(`Name: ${leaseData.tenant.name}`)
-         .text(`Date: ${new Date().toLocaleDateString()}`);
-      
-      // Footer
-      doc.moveDown(2);
-      doc.fontSize(10).font('Helvetica')
-         .text('This agreement was generated automatically by Smart Property Manager', 
-               { align: 'center' });
-      
-      // Finalize the PDF
       doc.end();
       
     } catch (error) {
