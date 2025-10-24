@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [tenantData, setTenantData] = useState({
     currentUnits: [], // Array of { unit, property, lease, rentSchedule, payments }
     previousUnits: [], // Array of ended lease units
+    allLeaseHistory: [], // Array of ALL past leases for this tenant
     payments: []
   });
   const [showRentSchedules, setShowRentSchedules] = useState({}); // Track which units show rent schedules
@@ -297,7 +298,7 @@ export default function DashboardPage() {
                 console.error('Error refreshing lease:', leaseError);
               }
             } else {
-              setTenantData({ currentUnits: [], previousUnits: [], payments: [] });
+              setTenantData({ currentUnits: [], previousUnits: [], allLeaseHistory: [], payments: [] });
             }
           } catch (error) {
             console.error('Error refreshing tenant data:', error);
@@ -356,19 +357,27 @@ export default function DashboardPage() {
             }
           }
           
-          if (tenantUnits.length > 0) {
-            try {
-              const leaseResponse = await api.get('/move-in/leases');
-              const leases = leaseResponse.data || [];
-              const paymentsResponse = await api.get('/payments');
-              const payments = paymentsResponse.data || [];
-              
-              // Separate current and previous units based on lease status
-              const currentUnits = [];
-              const previousUnits = [];
-              
+          // Load ALL lease history for this tenant (not just current assignments)
+          try {
+            const leaseResponse = await api.get('/move-in/leases');
+            const allLeases = leaseResponse.data || [];
+            const paymentsResponse = await api.get('/payments');
+            const payments = paymentsResponse.data || [];
+            
+            // Filter leases for this tenant
+            const tenantLeases = allLeases.filter(l => 
+              l.tenant && (l.tenant._id === user.id || l.tenant === user.id)
+            );
+            
+            // Separate current and previous units based on lease status
+            const currentUnits = [];
+            const previousUnits = [];
+            const allLeaseHistory = [];
+            
+            // Process currently assigned units
+            if (tenantUnits.length > 0) {
               tenantUnits.forEach(({ unit, property }) => {
-                const lease = leases.find(l => l.unit === unit._id);
+                const lease = tenantLeases.find(l => l.unit === unit._id);
                 const unitData = { unit, property, lease };
                 
                 if (lease) {
@@ -390,18 +399,43 @@ export default function DashboardPage() {
                   currentUnits.push(unitData);
                 }
               });
-              
-              setTenantData({
-                currentUnits,
-                previousUnits,
-                payments: payments
-              });
-            } catch (leaseError) {
-              console.error('Error loading lease:', leaseError);
-              setTenantData({ currentUnits: [], previousUnits: [], payments: [] });
             }
-          } else {
-            setTenantData({ currentUnits: [], previousUnits: [], payments: [] });
+            
+            // Get ALL lease history (including leases for units no longer assigned)
+            for (const lease of tenantLeases) {
+              const isLeaseEnded = lease.status === 'ENDED' || 
+                                 lease.status === 'TERMINATED' || 
+                                 lease.status === 'INACTIVE' ||
+                                 (lease.leaseEndDate && new Date(lease.leaseEndDate) < new Date());
+              
+              if (isLeaseEnded) {
+                // Try to find property details
+                try {
+                  const property = await api.get(`/properties/${lease.property._id || lease.property}`);
+                  const unit = property.data.units.find(u => u._id === lease.unit);
+                  
+                  if (unit && property.data) {
+                    allLeaseHistory.push({
+                      unit,
+                      property: property.data,
+                      lease
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error loading property for lease:', error);
+                }
+              }
+            }
+            
+            setTenantData({
+              currentUnits,
+              previousUnits,
+              allLeaseHistory,
+              payments: payments
+            });
+          } catch (leaseError) {
+            console.error('Error loading lease:', leaseError);
+            setTenantData({ currentUnits: [], previousUnits: [], allLeaseHistory: [], payments: [] });
           }
           
           // Load payment stats
@@ -797,8 +831,119 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* No Units Message */}
-        {tenantData.currentUnits.length === 0 && tenantData.previousUnits.length === 0 && (
+        {/* Lease History - When no current units but has history */}
+        {tenantData.currentUnits.length === 0 && tenantData.allLeaseHistory && tenantData.allLeaseHistory.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText size={24} className="text-blue-500" />
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Your Lease History</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {tenantData.allLeaseHistory.map((unitData, index) => (
+                <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                    {/* Property and Unit Header */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                          <Building size={20} />
+                          {unitData.property.title}
+                        </h3>
+                        <div className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded-full font-semibold">
+                          Unit {unitData.unit.name}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 text-sm">
+                        <MapPin size={14} />
+                        <span>{unitData.property.address}</span>
+                      </div>
+                    </div>
+
+                    {/* Unit Details */}
+                    <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                      <div className="flex items-center gap-2">
+                        <Home className="text-gray-500" size={16} />
+                        <span className="text-gray-500">Type:</span>
+                        <span>{unitData.unit.type}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500">Size:</span>
+                        <span>{unitData.unit.sizeSqFt} sq ft</span>
+                      </div>
+                      {unitData.unit.bedrooms > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Bed className="text-gray-500" size={16} />
+                          <span>{unitData.unit.bedrooms} Bed</span>
+                        </div>
+                      )}
+                      {unitData.unit.bathrooms > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Bath className="text-gray-500" size={16} />
+                          <span>{unitData.unit.bathrooms} Bath</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Lease Information */}
+                    {unitData.lease && (
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                            <FileText size={16} />
+                            Lease Agreement
+                          </h4>
+                          <button
+                            onClick={() => downloadAgreement(unitData.lease)}
+                            className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                          >
+                            <Download size={12} />
+                            View PDF
+                          </button>
+                        </div>
+                        <div className="text-sm space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-600 dark:text-gray-400">Agreement:</span>
+                            <span className="font-medium">#{unitData.lease.agreementNumber}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar size={14} className="text-gray-500" />
+                            <span className="text-gray-600 dark:text-gray-400">Period:</span>
+                            <span>{new Date(unitData.lease.leaseStartDate).toLocaleDateString()} - {new Date(unitData.lease.leaseEndDate).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <DollarSign size={14} className="text-gray-500" />
+                            <span className="text-gray-600 dark:text-gray-400">Rent:</span>
+                            <span className="font-medium">${unitData.lease.monthlyRent}/month</span>
+                          </div>
+                          {unitData.lease.status && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                unitData.lease.status === 'TERMINATED' 
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                              }`}>
+                                {unitData.lease.status}
+                              </span>
+                            </div>
+                          )}
+                          {unitData.lease.terminatedDate && (
+                            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                              <AlertCircle size={14} />
+                              <span className="text-xs">Terminated: {new Date(unitData.lease.terminatedDate).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No Units and No History Message */}
+        {tenantData.currentUnits.length === 0 && tenantData.previousUnits.length === 0 && (!tenantData.allLeaseHistory || tenantData.allLeaseHistory.length === 0) && (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
             <div className="flex items-center gap-3">
               <AlertCircle size={24} className="text-yellow-600" />
