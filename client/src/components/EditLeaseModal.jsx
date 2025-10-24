@@ -314,7 +314,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
     if (!updatedLeaseData) return;
     
     try {
-      const pdfResponse = await fetch(`/api/move-in/agreement/${updatedLeaseData._id}`, {
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+      const pdfResponse = await fetch(`${backendUrl}/move-in/agreement/${updatedLeaseData._id}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

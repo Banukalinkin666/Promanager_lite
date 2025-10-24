@@ -210,7 +210,8 @@ export default function DashboardPage() {
     try {
       // Create the PDF URL with authentication
       const token = localStorage.getItem('token');
-      const pdfUrl = `/api/move-in/agreement/${lease._id}?token=${token}`;
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+      const pdfUrl = `${backendUrl}/move-in/agreement/${lease._id}?token=${token}`;
       
       // Open PDF in new window
       const newWindow = window.open(pdfUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
