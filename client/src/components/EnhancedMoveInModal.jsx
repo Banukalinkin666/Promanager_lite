@@ -77,6 +77,12 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
   const [pdfPreview, setPdfPreview] = useState(null);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   
+  // Debug: Log when showPdfPreview changes
+  useEffect(() => {
+    console.log('📊 showPdfPreview changed:', showPdfPreview);
+    console.log('📊 pdfPreview data:', pdfPreview ? 'Present' : 'Null');
+  }, [showPdfPreview, pdfPreview]);
+  
   const sections = [
     { id: 1, title: 'Property Information', icon: Building, subtitle: 'Property and unit details' },
     { id: 2, title: 'Tenant Information', icon: User, subtitle: 'Tenant contact and identification' },
@@ -376,6 +382,8 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
       
       const response = await api.post(`/move-in/${property._id}/${unit._id}`, moveInData);
       
+      console.log('✅ Move-in response:', response.data);
+      
       toast.success('Move-in completed successfully!');
       
       // Clear the draft from localStorage
@@ -384,8 +392,16 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
       
       // Generate and show PDF preview
       if (response.data.lease && response.data.lease._id) {
+        console.log('✅ Setting PDF preview with lease:', response.data.lease._id);
         setPdfPreview(response.data.lease);
         setShowPdfPreview(true);
+        console.log('✅ showPdfPreview set to true');
+      } else {
+        console.warn('⚠️ No lease data in response');
+        // Still show success message even without PDF
+        alert('Move-in completed successfully! Lease agreement created.');
+        onSuccess();
+        onClose();
       }
       
       // Don't call onSuccess() here - it will be called when user closes the success modal
@@ -443,10 +459,13 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
     );
   };
   
+  console.log('🔍 Render - isOpen:', isOpen, 'showPdfPreview:', showPdfPreview, 'pdfPreview:', pdfPreview ? 'Present' : 'Null');
+  
   if (!isOpen) return null;
   
   // If showing PDF preview
   if (showPdfPreview && pdfPreview) {
+    console.log('✅ Rendering success modal');
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
