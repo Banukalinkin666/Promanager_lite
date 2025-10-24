@@ -152,6 +152,15 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                 moveInInspection: unitLease.documents?.moveInInspection || null
               }
             }));
+            
+            // Debug: Log loaded documents
+            console.log('📄 Loaded documents from lease:', unitLease.documents);
+            console.log('📄 FormData documents set to:', {
+              signedLease: unitLease.documents?.signedLease,
+              idProof: unitLease.documents?.idProof,
+              depositReceipt: unitLease.documents?.depositReceipt,
+              moveInInspection: unitLease.documents?.moveInInspection
+            });
           } catch (error) {
             console.error('Error loading tenant:', error);
           }
@@ -976,12 +985,18 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
               
               {expandedSections.includes(6) && (
                 <div className="p-4 bg-white dark:bg-gray-800 space-y-4">
+                  {(() => {
+                    console.log('📋 Current formData.documents:', formData.documents);
+                    return null;
+                  })()}
                   {[
                     { key: 'signedLease', label: 'Signed Lease Agreement', accept: '.pdf,.docx' },
                     { key: 'idProof', label: 'ID Proof', accept: 'image/*,.pdf' },
                     { key: 'depositReceipt', label: 'Deposit Receipt', accept: 'image/*,.pdf' },
                     { key: 'moveInInspection', label: 'Move-In Inspection Report', accept: 'image/*,.pdf' }
-                  ].map(({ key, label, accept }) => (
+                  ].map(({ key, label, accept }) => {
+                    console.log(`📄 Document ${key}:`, formData.documents[key]);
+                    return (
                     <div key={key} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                         {label} {hasCollectedRent && <span className="text-xs text-red-500 ml-2">(Locked)</span>}
@@ -1040,7 +1055,8 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
             </div>
               )}
           </div>
