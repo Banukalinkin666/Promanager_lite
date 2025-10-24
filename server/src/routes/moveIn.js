@@ -81,9 +81,15 @@ const generateRentPayments = async (lease, property, unit) => {
 
 // Upload document for move-in
 router.post('/upload-document', authenticate, authorize('OWNER', 'ADMIN'), (req, res, next) => {
+  console.log('📤 Document upload request received');
+  console.log('User:', req.user?.id, 'Role:', req.user?.role);
+  console.log('Content-Type:', req.headers['content-type']);
+  
   documentUpload.single('document')(req, res, (err) => {
     if (err) {
-      console.error('Document upload error:', err);
+      console.error('❌ Document upload error:', err);
+      console.error('Error type:', err.constructor.name);
+      console.error('Error message:', err.message);
       
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -105,12 +111,22 @@ router.post('/upload-document', authenticate, authorize('OWNER', 'ADMIN'), (req,
     }
     
     try {
+      console.log('✅ File received by multer');
+      console.log('File object:', req.file ? 'Present' : 'Missing');
+      
       if (!req.file) {
+        console.log('❌ No file in request');
         return res.status(400).json({ 
           message: 'No file uploaded',
           error: 'NO_FILE'
         });
       }
+
+      console.log('📄 File details:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
 
       // Prepare response with file metadata
       let fileUrl;
@@ -118,12 +134,12 @@ router.post('/upload-document', authenticate, authorize('OWNER', 'ADMIN'), (req,
       if (USE_CLOUD_STORAGE && req.file.path && req.file.path.startsWith('http')) {
         // Cloudinary returns full URL in file.path
         fileUrl = req.file.path;
-        console.log('📤 Cloudinary document uploaded:', fileUrl);
+        console.log('✅ Cloudinary document uploaded:', fileUrl);
       } else {
         // Local storage - create relative path
         const filename = req.file.filename || path.basename(req.file.path);
         fileUrl = `/uploads/documents/${filename}`;
-        console.log('📤 Local document uploaded:', fileUrl);
+        console.log('✅ Local document uploaded:', fileUrl);
       }
       
       res.json({
