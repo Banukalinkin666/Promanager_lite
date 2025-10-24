@@ -388,7 +388,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
         setShowPdfPreview(true);
       }
       
-      onSuccess();
+      // Don't call onSuccess() here - it will be called when user closes the success modal
     } catch (error) {
       console.error('Error completing move-in:', error);
       toast.error(error.response?.data?.message || 'Failed to complete move-in');
@@ -459,6 +459,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
               <button
                 onClick={() => {
                   setShowPdfPreview(false);
+                  onSuccess(); // Refresh parent data
                   onClose();
                 }}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -508,6 +509,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
                 <button
                   onClick={() => {
                     setShowPdfPreview(false);
+                    onSuccess(); // Refresh parent data
                     onClose();
                   }}
                   className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
