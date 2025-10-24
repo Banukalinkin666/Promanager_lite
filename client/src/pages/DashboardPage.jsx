@@ -209,28 +209,56 @@ export default function DashboardPage() {
     if (!lease) return;
     
     try {
-      // Create the PDF URL with authentication
+      console.log('📄 Downloading PDF for lease:', lease._id);
       const token = localStorage.getItem('token');
-      const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
-      const pdfUrl = `${backendUrl}/move-in/agreement/${lease._id}?token=${token}`;
       
-      // Open PDF in new window
-      const newWindow = window.open(pdfUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      // Get the backend URL from environment or construct it
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+      
+      // Fetch the PDF with proper authentication
+      const response = await fetch(`${backendUrl}/move-in/agreement/${lease._id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('📊 Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server error:', errorText);
+        throw new Error(`Failed to download PDF: ${response.status}`);
+      }
+      
+      // Get the PDF blob
+      const blob = await response.blob();
+      console.log('📦 Blob size:', blob.size, 'bytes');
+      
+      if (blob.size === 0) {
+        throw new Error('PDF is empty');
+      }
+      
+      // Create a URL for the blob
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Open in new window
+      const newWindow = window.open(blobUrl, '_blank');
       
       if (!newWindow) {
-        // If popup was blocked, try direct download
+        // If popup was blocked, download the file
         const link = document.createElement('a');
-        link.href = pdfUrl;
+        link.href = blobUrl;
         link.download = `rent-agreement-${lease.agreementNumber}.pdf`;
-        link.target = '_blank';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
         alert('Popup was blocked. PDF will be downloaded instead.');
       }
     } catch (error) {
-      console.error('Error opening PDF:', error);
-      alert('Failed to open agreement PDF.');
+      console.error('Error downloading PDF:', error);
+      alert('Failed to download agreement PDF. Please try again later.');
     }
   };
 
