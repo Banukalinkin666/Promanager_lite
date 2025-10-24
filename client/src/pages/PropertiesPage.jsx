@@ -197,6 +197,126 @@ const EditUnitButton = ({ unit, onEdit }) => {
   );
 };
 
+// Edit Property Button Component
+const EditPropertyButton = ({ property, onEdit }) => {
+  const [hasHistory, setHasHistory] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkPropertyHistory();
+  }, [property._id]);
+
+  const checkPropertyHistory = async () => {
+    try {
+      // Check if property has any leases
+      const leasesResponse = await api.get('/move-in/leases');
+      const propertyLeases = leasesResponse.data.filter(
+        lease => lease.property === property._id || lease.property._id === property._id
+      );
+      
+      // Check if property has any payments
+      const paymentsResponse = await api.get('/payments');
+      const propertyPayments = paymentsResponse.data.filter(
+        payment => payment.metadata?.propertyId === property._id
+      );
+      
+      setHasHistory(propertyLeases.length > 0 || propertyPayments.length > 0);
+    } catch (error) {
+      console.error('Error checking property history:', error);
+      setHasHistory(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <button
+        disabled
+        className="px-3 py-1 bg-gray-400 text-white text-xs rounded cursor-not-allowed flex items-center gap-1"
+      >
+        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+      </button>
+    );
+  }
+
+  return (
+    <button 
+      onClick={hasHistory ? undefined : onEdit}
+      disabled={hasHistory}
+      className={`px-3 py-1 text-white text-xs rounded flex items-center gap-1 ${
+        hasHistory 
+          ? 'bg-gray-400 cursor-not-allowed' 
+          : 'bg-blue-500 hover:bg-blue-600'
+      }`}
+      title={hasHistory ? 'Property cannot be edited because it has previous transactions or leases' : 'Edit Property'}
+    >
+      <Edit size={12} />
+      Edit
+    </button>
+  );
+};
+
+// Delete Property Button Component
+const DeletePropertyButton = ({ property, onDelete }) => {
+  const [hasHistory, setHasHistory] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkPropertyHistory();
+  }, [property._id]);
+
+  const checkPropertyHistory = async () => {
+    try {
+      // Check if property has any leases
+      const leasesResponse = await api.get('/move-in/leases');
+      const propertyLeases = leasesResponse.data.filter(
+        lease => lease.property === property._id || lease.property._id === property._id
+      );
+      
+      // Check if property has any payments
+      const paymentsResponse = await api.get('/payments');
+      const propertyPayments = paymentsResponse.data.filter(
+        payment => payment.metadata?.propertyId === property._id
+      );
+      
+      setHasHistory(propertyLeases.length > 0 || propertyPayments.length > 0);
+    } catch (error) {
+      console.error('Error checking property history:', error);
+      setHasHistory(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <button
+        disabled
+        className="px-3 py-1 bg-gray-400 text-white text-xs rounded cursor-not-allowed flex items-center gap-1"
+      >
+        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+      </button>
+    );
+  }
+
+  return (
+    <button 
+      onClick={hasHistory ? undefined : onDelete}
+      disabled={hasHistory}
+      className={`px-3 py-1 text-white text-xs rounded flex items-center gap-1 ${
+        hasHistory 
+          ? 'bg-gray-400 cursor-not-allowed' 
+          : 'bg-red-500 hover:bg-red-600'
+      }`}
+      title={hasHistory ? 'Property cannot be deleted because it has previous transactions or leases' : 'Delete Property'}
+    >
+      <Trash2 size={12} />
+      Delete
+    </button>
+  );
+};
+
 // Edit Lease Button Component
 const EditLeaseButton = ({ unit, lease, onEdit }) => {
   const [hasRent, setHasRent] = useState(null);
@@ -1774,18 +1894,14 @@ export default function PropertiesPage() {
                 
                 {/* Action Buttons */}
                 <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={() => editProperty(p)}
-                    className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => deleteProperty(p._id)}
-                    className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                  >
-                    Delete
-                  </button>
+                  <EditPropertyButton 
+                    property={p}
+                    onEdit={() => editProperty(p)}
+                  />
+                  <DeletePropertyButton 
+                    property={p}
+                    onDelete={() => deleteProperty(p._id)}
+                  />
                 </div>
               </div>
               
