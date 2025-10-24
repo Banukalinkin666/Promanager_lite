@@ -936,6 +936,63 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Payment History */}
+                    {unitData.lease && (() => {
+                      const leasePayments = tenantData.payments.filter(
+                        p => p.lease === unitData.lease._id
+                      );
+                      
+                      if (leasePayments.length === 0) return null;
+                      
+                      return (
+                        <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg space-y-2">
+                          <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                            <DollarSign size={16} />
+                            Payment History
+                          </h4>
+                          <div className="space-y-1.5">
+                            {leasePayments.map((payment, idx) => (
+                              <div 
+                                key={idx}
+                                className="flex items-center justify-between text-sm p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Calendar size={12} className="text-gray-500" />
+                                  <span className="text-gray-600 dark:text-gray-400">
+                                    {new Date(payment.paymentDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-semibold text-gray-900 dark:text-white">
+                                    ${payment.amount}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                    payment.status === 'COMPLETED' 
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                      : payment.status === 'PENDING'
+                                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                  }`}>
+                                    {payment.status}
+                                  </span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    {payment.paymentMethod}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                            {/* Payment Summary */}
+                            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between text-sm font-semibold">
+                              <span className="text-gray-700 dark:text-gray-300">Total Paid:</span>
+                              <span className="text-green-600 dark:text-green-400">
+                                ${leasePayments.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                 </div>
               ))}
             </div>
