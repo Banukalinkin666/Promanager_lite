@@ -147,7 +147,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     let currentY = propBoxY + 15;
     const labelWidth = 110;
     const valueX = marginLeft + labelWidth + 10;
-    const leftColWidth = (contentWidth / 2) - 20;
+    const leftColWidth = 200; // Fixed width to prevent overlap
     
     doc.fontSize(10).font('Helvetica-Bold')
        .fillColor('#000000')
@@ -173,11 +173,11 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     doc.font('Helvetica')
        .text(leaseData.unit.type, valueX, currentY, { width: leftColWidth });
     
-    // Right column
-    const rightColX = marginLeft + (contentWidth / 2);
+    // Right column - moved further right to avoid conflicts
+    const rightColX = marginLeft + 340; // Fixed position, moved right
     const rightLabelWidth = 80;
     const rightValueX = rightColX + rightLabelWidth + 10;
-    const rightColWidth = (contentWidth / 2) - rightLabelWidth - 30;
+    const rightColWidth = contentWidth - 340 - rightLabelWidth - 30;
     
     currentY = propBoxY + 15;
     doc.font('Helvetica-Bold')
@@ -238,57 +238,65 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     
     // Left column - Lease dates and rent
     currentY = termsBoxY + 15;
+    const termsLabelWidth = 120;
+    const termsValueX = marginLeft + termsLabelWidth + 10;
+    const termsLeftColWidth = 200;
     
     doc.fontSize(10).font('Helvetica-Bold')
        .fillColor('#000000')
-       .text('Lease Start Date:', marginLeft + 10, currentY, { width: labelWidth });
+       .text('Lease Start Date:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueX, currentY, { width: leftColWidth });
+       .text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), termsValueX, currentY, { width: termsLeftColWidth });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
-       .text('Lease End Date:', marginLeft + 10, currentY, { width: labelWidth });
+       .text('Lease End Date:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueX, currentY, { width: leftColWidth });
+       .text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), termsValueX, currentY, { width: termsLeftColWidth });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
-       .text('Monthly Rent:', marginLeft + 10, currentY, { width: labelWidth });
+       .text('Monthly Rent:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(`$${leaseData.monthlyRent}`, valueX, currentY, { width: leftColWidth });
+       .text(`$${leaseData.monthlyRent}`, termsValueX, currentY, { width: termsLeftColWidth });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
-       .text('Security Deposit:', marginLeft + 10, currentY, { width: labelWidth });
+       .text('Security Deposit:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(`$${leaseData.securityDeposit || 0}`, valueX, currentY, { width: leftColWidth });
+       .text(`$${leaseData.securityDeposit || 0}`, termsValueX, currentY, { width: termsLeftColWidth });
     
-    // Right column - Additional terms
+    // Right column - Additional terms (moved further right)
     if (leaseData.terms) {
+      const termsRightColX = marginLeft + 340;
+      const termsRightLabelWidth = 80;
+      const termsRightValueX = termsRightColX + termsRightLabelWidth + 10;
+      const termsRightColWidth = contentWidth - 340 - termsRightLabelWidth - 30;
+      
       currentY = termsBoxY + 15;
       
       doc.font('Helvetica-Bold')
-         .text('Late Fee:', rightColX + 10, currentY, { width: rightLabelWidth });
+         .text('Late Fee:', termsRightColX + 10, currentY, { width: termsRightLabelWidth });
       doc.font('Helvetica')
-         .text(`$${leaseData.terms.lateFeeAmount || 50}`, rightValueX, currentY, { width: rightColWidth });
+         .text(`$${leaseData.terms.lateFeeAmount || 50}`, termsRightValueX, currentY, { width: termsRightColWidth });
       
       currentY += 20;
       doc.font('Helvetica-Bold')
-         .text('Grace Period:', rightColX + 10, currentY, { width: rightLabelWidth });
+         .text('Grace Period:', termsRightColX + 10, currentY, { width: termsRightLabelWidth });
       doc.font('Helvetica')
-         .text(`${leaseData.terms.lateFeeAfterDays || 5} days`, rightValueX, currentY, { width: rightColWidth });
+         .text(`${leaseData.terms.lateFeeAfterDays || 5} days`, termsRightValueX, currentY, { width: termsRightColWidth });
       
       currentY += 20;
       doc.font('Helvetica-Bold')
-         .text('Notice Period:', rightColX + 10, currentY, { width: rightLabelWidth });
+         .text('Notice Period:', termsRightColX + 10, currentY, { width: termsRightLabelWidth });
       doc.font('Helvetica')
-         .text(`${leaseData.terms.noticePeriodDays || 30} days`, rightValueX, currentY, { width: rightColWidth });
+         .text(`${leaseData.terms.noticePeriodDays || 30} days`, termsRightValueX, currentY, { width: termsRightColWidth });
       
       currentY += 20;
       doc.font('Helvetica-Bold')
-         .text('Pet Policy:', rightColX + 10, currentY, { width: rightLabelWidth });
+         .text('Pet Policy:', termsRightColX + 10, currentY, { width: termsRightLabelWidth });
       doc.font('Helvetica')
-         .text(leaseData.terms.petAllowed ? 'Allowed' : 'Not Allowed', rightValueX, currentY, { width: rightColWidth });
+         .text(leaseData.terms.petAllowed ? 'Allowed' : 'Not Allowed', termsRightValueX, currentY, { width: termsRightColWidth });
     }
     
     doc.y = termsBoxY + termsBoxHeight + 10;
