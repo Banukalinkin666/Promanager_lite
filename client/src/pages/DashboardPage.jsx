@@ -620,7 +620,7 @@ export default function DashboardPage() {
                         
                         {showRentSchedules[unitData.unit._id] && (
                           <div className="mt-4 space-y-2">
-                            {unitData.rentSchedule.slice(0, 6).map((payment, paymentIndex) => (
+                            {unitData.rentSchedule.map((payment, paymentIndex) => (
                               <div 
                                 key={paymentIndex}
                                 className={`flex items-center justify-between p-3 rounded-lg border ${
@@ -690,12 +690,6 @@ export default function DashboardPage() {
                                 </div>
                               </div>
                             ))}
-                            
-                            {unitData.rentSchedule.length > 6 && (
-                              <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-                                ... and {unitData.rentSchedule.length - 6} more payments
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
