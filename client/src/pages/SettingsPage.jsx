@@ -44,10 +44,12 @@ export default function SettingsPage() {
 
   // Set active tab based on URL
   useEffect(() => {
-    if (location.pathname === '/settings/user-management') {
+    if (location.pathname === '/settings/appearance') {
+      setActiveTab('appearance');
+    } else if (location.pathname === '/settings/user-management') {
       setActiveTab('user-management');
     } else {
-      setActiveTab('user-management'); // Default to user management
+      setActiveTab('appearance'); // Default to appearance for all users
     }
   }, [location.pathname]);
 

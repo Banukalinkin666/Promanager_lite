@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { 
   BarChart3, Building2, Users, CreditCard, 
-  TrendingUp, Settings, LogOut, ChevronLeft, ChevronRight, User, ChevronDown, UserCircle, Shield
+  TrendingUp, Settings, LogOut, ChevronLeft, ChevronRight, User, ChevronDown, UserCircle, Shield, Palette
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -37,9 +37,10 @@ function Sidebar({ isOpen, onToggle }) {
       path: '/settings', 
       label: 'Settings', 
       icon: Settings, 
-      roles: ['ADMIN', 'OWNER'],
+      roles: ['ADMIN', 'OWNER', 'TENANT'],
       hasSubmenu: true,
       submenu: [
+        { path: '/settings/appearance', label: 'Appearance', icon: Palette },
         { path: '/settings/user-management', label: 'User Management', icon: Shield, roles: ['ADMIN'] }
       ]
     },
@@ -683,6 +684,7 @@ export default function App() {
             <Route path="/payments" element={<ProtectedRoute roles={['TENANT','OWNER','ADMIN']}><PaymentsPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute roles={['OWNER','ADMIN']}><ReportsPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            <Route path="/settings/appearance" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/settings/user-management" element={<ProtectedRoute roles={['ADMIN']}><SettingsPage /></ProtectedRoute>} />
           </Routes>
         </Layout>
