@@ -176,7 +176,7 @@ router.post('/proxy-document', authenticate, async (req, res) => {
     
     let response;
     
-             if (isCloudinary) {
+    if (isCloudinary) {
       // For Cloudinary, try to fetch without authentication first
       // Cloudinary URLs are usually public
       console.log('☁️ Cloudinary URL detected');

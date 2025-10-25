@@ -160,17 +160,35 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
       let blob;
       let fileName = doc.filename || 'document';
       
-      // If it's a Cloudinary URL, open directly (Cloudinary URLs should be publicly accessible)
+      // If it's a Cloudinary URL, try proxy first (Cloudinary may require authentication)
       if (doc.url.startsWith('http://') || doc.url.startsWith('https://')) {
-        console.log('🔗 Cloudinary URL detected - opening directly');
+        console.log('🔗 HTTP URL detected');
         
         // Check if it's actually Cloudinary
         if (doc.url.includes('cloudinary.com')) {
-          // For Cloudinary URLs, open directly in new tab
-          console.log('☁️ Opening Cloudinary URL directly');
-          window.open(doc.url, '_blank');
-          toast.success('Document opened in new tab');
-          return;
+          // For Cloudinary URLs, use backend proxy to handle authentication
+          console.log('☁️ Cloudinary URL detected - using backend proxy');
+          
+          const token = localStorage.getItem('token');
+          const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+          
+          const response = await fetch(`${backendUrl}/move-in/proxy-document`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ url: doc.url })
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Proxy failed:', response.status, errorText);
+            throw new Error(`Failed to fetch document: ${errorText}`);
+          }
+          
+          blob = await response.blob();
+          console.log('✅ Document fetched via proxy');
         } else {
           // For other HTTP URLs, try to fetch
           console.log('🔄 Attempting to fetch document...');
