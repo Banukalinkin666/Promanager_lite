@@ -140,45 +140,25 @@ function Sidebar({ isOpen, onToggle }) {
     <div className={`fixed left-0 top-0 h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 z-20 ${
       isOpen ? 'w-64' : 'w-16'
     }`}>
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 h-14 flex items-center">
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 h-16 flex items-center">
         <div className="flex items-center justify-between w-full">
           {isOpen ? (
             <div className="flex items-center flex-1">
               <img 
-                src="/logo-white.svg" 
+                src="/spm-logo-white.png" 
                 alt="Smart Property Manager" 
-                className="h-10 w-auto max-w-full"
-                onError={(e) => {
-                  // Fallback to text if image fails to load
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
+                className="h-12 w-auto max-w-[200px]"
+                style={{ objectFit: 'contain' }}
               />
-              <div className="flex items-center gap-2" style={{ display: 'none' }}>
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Building2 size={20} className="text-white" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">Smart Property</span>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Manager</span>
-                </div>
-              </div>
             </div>
           ) : (
             <div className="flex items-center justify-center w-full">
               <img 
-                src="/icon-only.svg" 
+                src="/spm-logo-icon.png" 
                 alt="SPM" 
-                className="h-8 w-8"
-                onError={(e) => {
-                  // Fallback to icon if image fails to load
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
+                className="h-10 w-10"
+                style={{ objectFit: 'contain' }}
               />
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center" style={{ display: 'none' }}>
-                <Building2 size={20} className="text-white" />
-              </div>
             </div>
           )}
           <button 
