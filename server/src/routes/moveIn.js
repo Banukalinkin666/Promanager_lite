@@ -425,12 +425,45 @@ router.post('/fetch-document', authenticate, async (req, res) => {
       
       if (!response.ok) {
         console.error('❌ Fetch failed with status:', response.status);
-        const errorText = await response.text();
-        console.error('❌ Error response body:', errorText);
-        return res.status(500).json({ 
-          message: `Failed to fetch document: HTTP ${response.status}`,
-          error: `Server returned ${response.status}: ${errorText}` 
-        });
+        
+        // Check if it's a Cloudinary ACL error
+        if (response.headers.get('x-cld-error') && response.headers.get('x-cld-error').includes('deny or ACL failure')) {
+          console.log('⚠️ Cloudinary ACL error detected, trying without attachment flag...');
+          
+          // Try to fetch without the attachment flag by removing transformation parameters
+          const cleanUrl = url.split('?')[0]; // Remove any query parameters
+          const retryUrl = cleanUrl.split('upload/')[0] + 'upload/raw/' + cleanUrl.split('upload/')[1];
+          
+          console.log('🔄 Retrying with clean URL:', retryUrl);
+          
+          response = await fetch(retryUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': '*/*'
+            },
+            redirect: 'follow'
+          });
+          
+          console.log('📊 Retry response status:', response.status);
+          
+          if (!response.ok) {
+            console.error('❌ Retry also failed with status:', response.status);
+            const errorText = await response.text();
+            console.error('❌ Error response body:', errorText);
+            return res.status(500).json({ 
+              message: `Failed to fetch document: HTTP ${response.status}`,
+              error: `Server returned ${response.status}: ${errorText}` 
+            });
+          }
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Error response body:', errorText);
+          return res.status(500).json({ 
+            message: `Failed to fetch document: HTTP ${response.status}`,
+            error: `Server returned ${response.status}: ${errorText}` 
+          });
+        }
       }
       
       console.log('✅ Document fetched successfully');
