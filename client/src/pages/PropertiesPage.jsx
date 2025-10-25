@@ -1279,35 +1279,38 @@ export default function PropertiesPage() {
                           <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                             {unit.type} • {unit.sizeSqFt} sq ft • Floor {unit.floor || 'N/A'} • ${unit.rentAmount}/month
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                             {unit.bedrooms > 0 && (
                               <div className="flex items-center gap-1">
                                 <Bed size={12} />
-                                {unit.bedrooms} Bed
+                                <span className="font-medium">{unit.bedrooms}</span>
+                                <span>Bed</span>
                               </div>
                             )}
                             {unit.bathrooms > 0 && (
                               <div className="flex items-center gap-1">
                                 <Bath size={12} />
-                                {unit.bathrooms} Bath
+                                <span className="font-medium">{unit.bathrooms}</span>
+                                <span>Bath</span>
                               </div>
                             )}
                             {unit.parking > 0 && (
                               <div className="flex items-center gap-1">
                                 <Car size={12} />
-                                {unit.parking} Parking
+                                <span className="font-medium">{unit.parking}</span>
+                                <span>Parking</span>
                               </div>
                             )}
                             {unit.electricityMeterNo && (
                               <div className="flex items-center gap-1">
                                 <Zap size={12} />
-                                {unit.electricityMeterNo}
+                                <span className="font-medium">{unit.electricityMeterNo}</span>
                               </div>
                             )}
                             {unit.waterMeterNo && (
                               <div className="flex items-center gap-1">
                                 <Droplets size={12} />
-                                {unit.waterMeterNo}
+                                <span className="font-medium">{unit.waterMeterNo}</span>
                               </div>
                             )}
                           </div>
