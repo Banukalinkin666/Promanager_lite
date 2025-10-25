@@ -11,6 +11,34 @@ const __dirname = path.dirname(__filename);
 
 const router = Router();
 
+// Simple test endpoint
+router.get('/test', (req, res) => {
+  res.json({ message: 'Properties API is working!', timestamp: new Date().toISOString() });
+});
+
+// Debug endpoint to check payments without auth
+router.get('/debug-payments-simple', async (req, res) => {
+  try {
+    const Payment = (await import('../models/Payment.js')).default;
+    const allPayments = await Payment.find({}).limit(10);
+    
+    res.json({
+      message: 'Debug endpoint working',
+      totalPayments: allPayments.length,
+      samplePayments: allPayments.map(p => ({
+        id: p._id,
+        amount: p.amount,
+        status: p.status,
+        propertyId: p.metadata?.propertyId,
+        unitId: p.metadata?.unitId,
+        originalAmount: p.metadata?.originalAmount
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Upload property images (OWNER, ADMIN)
 router.post('/upload-images', authenticate, authorize('OWNER', 'ADMIN'), (req, res, next) => {
   upload.array('images', 5)(req, res, (err) => {
