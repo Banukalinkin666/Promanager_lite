@@ -565,34 +565,111 @@ router.post('/fetch-document', authenticate, async (req, res) => {
     console.log('📥 Fetching document from:', url);
     console.log('📄 Filename:', filename);
     
-    // Use proper streaming with fetch
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': '*/*'
-      },
-      redirect: 'follow'
-    });
+    // Try axios first, fallback to fetch if not available
+    let response;
+    let contentType;
+    let contentLength;
     
-    console.log('📊 Response status:', response.status);
-    console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    if (!response.ok) {
-      console.error('❌ Fetch failed with status:', response.status);
-      const errorText = await response.text();
-      console.error('❌ Error response body:', errorText);
-      return res.status(500).json({ 
-        message: `Failed to fetch document: HTTP ${response.status}`,
-        error: `Server returned ${response.status}: ${errorText}` 
+    try {
+      // Import axios dynamically
+      const axios = (await import('axios')).default;
+      
+      // Use axios with proper streaming configuration
+      response = await axios.get(url, {
+        responseType: 'stream',
+        timeout: 30000, // 30 second timeout
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*'
+        },
+        validateStatus: function (status) {
+          return status >= 200 && status < 300; // Only resolve for 2xx status codes
+        }
       });
+      
+      console.log('📊 Axios response status:', response.status);
+      console.log('📊 Axios response headers:', response.headers);
+      
+      contentType = response.headers['content-type'] || 'application/pdf';
+      contentLength = response.headers['content-length'];
+      
+      console.log('📤 Streaming with axios...');
+      
+      // Stream the response data directly to the client
+      response.data.pipe(res);
+      
+      // Handle stream events
+      response.data.on('end', () => {
+        console.log('✅ Document stream completed');
+      });
+      
+      response.data.on('error', (error) => {
+        console.error('❌ Stream error:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Stream error', error: error.message });
+        }
+      });
+      
+    } catch (axiosError) {
+      console.log('⚠️ Axios failed, trying fetch fallback:', axiosError.message);
+      
+      // Fallback to fetch API
+      const fetchResponse = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*'
+        },
+        redirect: 'follow'
+      });
+      
+      console.log('📊 Fetch response status:', fetchResponse.status);
+      console.log('📊 Fetch response headers:', Object.fromEntries(fetchResponse.headers.entries()));
+      
+      if (!fetchResponse.ok) {
+        throw new Error(`Fetch failed with status: ${fetchResponse.status}`);
+      }
+      
+      contentType = fetchResponse.headers.get('content-type') || 'application/pdf';
+      contentLength = fetchResponse.headers.get('content-length');
+      
+      console.log('📤 Streaming with fetch...');
+      
+      // Stream using fetch
+      if (fetchResponse.body) {
+        const reader = fetchResponse.body.getReader();
+        
+        const pump = async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                console.log('✅ Document stream completed');
+                res.end();
+                break;
+              }
+              res.write(value);
+            }
+          } catch (error) {
+            console.error('❌ Stream error:', error);
+            if (!res.headersSent) {
+              res.status(500).json({ message: 'Stream error', error: error.message });
+            }
+          }
+        };
+        
+        pump();
+      } else {
+        // Fallback to buffering
+        console.log('⚠️ Streaming not available, using buffer fallback');
+        const buffer = await fetchResponse.arrayBuffer();
+        console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
+        res.send(Buffer.from(buffer));
+      }
     }
     
-    console.log('✅ Document fetched successfully');
-    
-    // Get the content type from response
-    const contentType = response.headers.get('content-type') || 'application/pdf';
-    const contentLength = response.headers.get('content-length');
     console.log('📄 Content type:', contentType);
     console.log('📏 Content length:', contentLength);
     
@@ -605,41 +682,6 @@ router.post('/fetch-document', authenticate, async (req, res) => {
       res.setHeader('Content-Length', contentLength);
     }
     
-    console.log('📤 Streaming response...');
-    
-    // Stream the response body directly to the client
-    if (response.body) {
-      // Use the readable stream from the response
-      const reader = response.body.getReader();
-      
-      const pump = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              console.log('✅ Document stream completed');
-              res.end();
-              break;
-            }
-            res.write(value);
-          }
-        } catch (error) {
-          console.error('❌ Stream error:', error);
-          if (!res.headersSent) {
-            res.status(500).json({ message: 'Stream error', error: error.message });
-          }
-        }
-      };
-      
-      pump();
-    } else {
-      // Fallback to buffering if streaming is not available
-      console.log('⚠️ Streaming not available, using buffer fallback');
-      const buffer = await response.arrayBuffer();
-      console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
-      res.send(Buffer.from(buffer));
-    }
-    
     console.log('✅ Document served successfully');
     
   } catch (error) {
@@ -648,7 +690,29 @@ router.post('/fetch-document', authenticate, async (req, res) => {
     console.error('Error stack:', error.stack);
     
     if (!res.headersSent) {
-      res.status(500).json({ message: 'Error fetching document', error: error.message });
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('❌ Response error:', error.response.status, error.response.data);
+        res.status(500).json({ 
+          message: `Failed to fetch document: HTTP ${error.response.status}`,
+          error: error.response.data || error.message 
+        });
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('❌ Request error:', error.request);
+        res.status(500).json({ 
+          message: 'No response received from document server',
+          error: error.message 
+        });
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('❌ Setup error:', error.message);
+        res.status(500).json({ 
+          message: 'Error setting up document request',
+          error: error.message 
+        });
+      }
     }
   }
 });

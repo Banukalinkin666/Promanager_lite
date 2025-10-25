@@ -27,7 +27,8 @@
     "express-validator": "^7.0.1",
     "node-cron": "^3.0.3",
     "cloudinary": "^1.41.3",
-    "multer-storage-cloudinary": "^4.0.0"
+    "multer-storage-cloudinary": "^4.0.0",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
