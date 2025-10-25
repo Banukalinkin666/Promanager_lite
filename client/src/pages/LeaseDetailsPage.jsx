@@ -34,24 +34,52 @@ const LeaseDetailsPage = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [propertyResponse, unitResponse, leaseResponse] = await Promise.all([
-        api.get(`/properties/${propertyId}`),
-        api.get(`/properties/${propertyId}/units/${unitId}`),
-        api.get(`/move-in/leases?unitId=${unitId}`)
-      ]);
+      console.log('🔄 Loading data for property:', propertyId, 'unit:', unitId);
       
-      setProperty(propertyResponse.data);
-      setUnit(unitResponse.data);
-      
-      if (leaseResponse.data && leaseResponse.data.length > 0) {
-        setLease(leaseResponse.data[0]);
-        loadAdditionalData();
-      } else {
-        setError('No lease found for this unit');
+      // Try to load property and unit first
+      let propertyData, unitData;
+      try {
+        const propertyResponse = await api.get(`/properties/${propertyId}`);
+        propertyData = propertyResponse.data;
+        setProperty(propertyData);
+        console.log('✅ Property loaded:', propertyData.title);
+      } catch (err) {
+        console.error('❌ Error loading property:', err);
+        throw new Error('Failed to load property data');
+      }
+
+      try {
+        const unitResponse = await api.get(`/properties/${propertyId}/units/${unitId}`);
+        unitData = unitResponse.data;
+        setUnit(unitData);
+        console.log('✅ Unit loaded:', unitData.name);
+      } catch (err) {
+        console.error('❌ Error loading unit:', err);
+        throw new Error('Failed to load unit data');
+      }
+
+      // Try to load lease data
+      try {
+        console.log('🔄 Loading lease data for unit:', unitId);
+        const leaseResponse = await api.get(`/move-in/leases?unitId=${unitId}`);
+        console.log('📋 Lease response:', leaseResponse.data);
+        
+        if (leaseResponse.data && leaseResponse.data.length > 0) {
+          setLease(leaseResponse.data[0]);
+          loadAdditionalData();
+          console.log('✅ Lease loaded:', leaseResponse.data[0].agreementNumber);
+        } else {
+          console.log('⚠️ No lease found for unit:', unitId);
+          setError('No lease found for this unit. Please ensure the unit has an active lease.');
+        }
+      } catch (err) {
+        console.error('❌ Error loading lease:', err);
+        console.error('Error details:', err.response?.data || err.message);
+        setError('Failed to load lease data. Please check if the unit has an active lease.');
       }
     } catch (err) {
-      setError('Failed to load lease data');
-      console.error('Error loading lease data:', err);
+      console.error('❌ Critical error loading data:', err);
+      setError(err.message || 'Failed to load lease data');
     } finally {
       setLoading(false);
     }
@@ -325,14 +353,27 @@ const LeaseDetailsPage = () => {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-          <button
-            onClick={() => navigate(`/properties/${propertyId}`)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Back to Property
-          </button>
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6">
+            <div className="text-red-600 dark:text-red-400 mb-4">
+              <h3 className="text-lg font-semibold mb-2">Failed to load lease data</h3>
+              <p className="text-sm">{error}</p>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={() => navigate(`/properties/${propertyId}`)}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Back to Property
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
