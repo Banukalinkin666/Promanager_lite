@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
 import upload, { USE_CLOUD_STORAGE } from '../middleware/cloudUpload.js';
 import Property from '../models/Property.js';
+import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
