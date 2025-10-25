@@ -774,8 +774,13 @@ export default function PropertiesPage() {
   };
 
   const handleMoveIn = (unit) => {
-    setSelectedUnitForMoveIn(unit);
-    setShowMoveInModal(true);
+    // Navigate to the move-in page instead of opening modal
+    navigate(`/move-in/${selectedProperty._id}/${unit._id}`, {
+      state: {
+        property: selectedProperty,
+        unit: unit
+      }
+    });
   };
 
   const handleMoveInSuccess = () => {

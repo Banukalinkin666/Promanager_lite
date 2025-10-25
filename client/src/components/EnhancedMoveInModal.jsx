@@ -7,7 +7,7 @@ import {
 import api from '../lib/api.js';
 import { useToast } from '../components/ToastContainer.jsx';
 
-const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => {
+const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFullPage = false }) => {
   const toast = useToast();
   
   // UI state
@@ -470,8 +470,8 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
   if (showPdfPreview && pdfPreview) {
     console.log('✅ Rendering success modal');
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+      <div className={isFullPage ? "min-h-screen bg-gray-50 dark:bg-gray-900" : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"}>
+        <div className={`bg-white dark:bg-gray-800 ${isFullPage ? "min-h-screen" : "rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto"}`}>
           <div className="p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -547,8 +547,8 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
   }
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-7xl w-full my-8">
+    <div className={isFullPage ? "min-h-screen bg-gray-50 dark:bg-gray-900" : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"}>
+      <div className={`bg-white dark:bg-gray-800 ${isFullPage ? "min-h-screen" : "rounded-lg max-w-7xl w-full my-8"}`}>
         <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">

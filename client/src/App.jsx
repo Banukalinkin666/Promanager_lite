@@ -14,6 +14,7 @@ import TenantsPage from './pages/TenantsPage.jsx';
 import PaymentsPage from './pages/PaymentsPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import MoveInPage from './pages/MoveInPage.jsx';
 
 function ProtectedRoute({ children, roles }) {
   const { user } = useAuth();
@@ -680,6 +681,7 @@ export default function App() {
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/properties" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
             <Route path="/properties/:id" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
+            <Route path="/move-in/:propertyId/:unitId" element={<ProtectedRoute roles={['OWNER','ADMIN']}><MoveInPage /></ProtectedRoute>} />
             <Route path="/tenants" element={<ProtectedRoute roles={['OWNER','ADMIN']}><TenantsPage /></ProtectedRoute>} />
             <Route path="/payments" element={<ProtectedRoute roles={['TENANT','OWNER','ADMIN']}><PaymentsPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute roles={['OWNER','ADMIN']}><ReportsPage /></ProtectedRoute>} />
