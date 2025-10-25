@@ -54,6 +54,30 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+// Database connectivity test
+app.get('/api/db-test', async (_req, res) => {
+  try {
+    const mongoose = await import('mongoose');
+    const isConnected = mongoose.default.connection.readyState === 1;
+    
+    res.json({
+      database: 'MongoDB',
+      connected: isConnected,
+      state: mongoose.default.connection.readyState,
+      host: mongoose.default.connection.host,
+      name: mongoose.default.connection.name,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      database: 'MongoDB',
+      connected: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Simple ping endpoint
 app.get('/ping', (_req, res) => {
   res.json({ pong: true, timestamp: new Date().toISOString() });
