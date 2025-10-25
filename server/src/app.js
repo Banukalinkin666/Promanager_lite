@@ -64,16 +64,18 @@ app.get('/api/db-test', async (_req, res) => {
       database: 'MongoDB',
       connected: isConnected,
       state: mongoose.default.connection.readyState,
-      host: mongoose.default.connection.host,
-      name: mongoose.default.connection.name,
-      timestamp: new Date().toISOString()
+      host: mongoose.default.connection.host || 'Not connected',
+      name: mongoose.default.connection.name || 'Not connected',
+      timestamp: new Date().toISOString(),
+      message: isConnected ? 'Database is connected and ready' : 'Database connection failed - server running in limited mode'
     });
   } catch (error) {
-    res.status(500).json({
+    res.json({
       database: 'MongoDB',
       connected: false,
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      message: 'Database connection error - server running in limited mode'
     });
   }
 });
