@@ -44,6 +44,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Root endpoint
+app.get('/', (_req, res) => {
+  res.json({ 
+    message: 'Smart Property Manager API is running!',
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      '/api/health',
+      '/api/db-test',
+      '/api/properties/test'
+    ]
+  });
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({ 
     ok: true, 
@@ -450,14 +463,18 @@ startInvoiceCron();
 // Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
   console.log('✅ Server started successfully - PDF generator fixed');
   console.log('🔧 Debug endpoints available:');
   console.log('  - /api/health');
+  console.log('  - /api/db-test');
   console.log('  - /api/properties/test');
   console.log('  - /api/properties/debug-payments-simple');
+  console.log('🌐 Server is ready to accept requests');
 }).on('error', (err) => {
   console.error('❌ Server startup error:', err);
+  console.error('❌ Error details:', err.message);
+  console.error('❌ Error code:', err.code);
   process.exit(1);
 });
 
