@@ -239,7 +239,6 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     // Left column - Lease dates and rent
     currentY = termsBoxY + 15;
     const termsLabelWidth = 120;
-    const termsValueX = marginLeft + termsLabelWidth + 10;
     const termsLeftColWidth = 200;
     
     // Define consistent positioning for all values - use fixed column approach
