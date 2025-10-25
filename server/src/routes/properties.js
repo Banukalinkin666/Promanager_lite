@@ -126,10 +126,33 @@ router.get('/debug-rent/:unitId', authenticate, authorize('OWNER', 'ADMIN'), asy
     // Import Payment model
     const Payment = (await import('../models/Payment.js')).default;
     
-    // Get all payments for this specific unit
-    const payments = await Payment.find({
+    // Try multiple queries to find payments
+    const paymentsByUnitIdObjectId = await Payment.find({
+      'metadata.unitId': new mongoose.Types.ObjectId(unitId)
+    });
+    
+    const paymentsByUnitIdString = await Payment.find({
       'metadata.unitId': unitId
     });
+    
+    const allPayments = await Payment.find({});
+    
+    console.log('📊 Payments by unitId (ObjectId):', paymentsByUnitIdObjectId.length);
+    console.log('📊 Payments by unitId (String):', paymentsByUnitIdString.length);
+    console.log('📊 All payments in database:', allPayments.length);
+    
+    // Show sample payments to understand the data structure
+    if (allPayments.length > 0) {
+      console.log('📄 Sample payment:', {
+        id: allPayments[0]._id,
+        amount: allPayments[0].amount,
+        status: allPayments[0].status,
+        metadata: allPayments[0].metadata
+      });
+    }
+    
+    // Get all payments for this specific unit
+    const payments = paymentsByUnitIdString.length > 0 ? paymentsByUnitIdString : paymentsByUnitIdObjectId;
     
     console.log('📊 Found payments for unit:', payments.length);
     console.log('📊 Payment details:', payments.map(p => ({
@@ -183,6 +206,41 @@ router.get('/debug-rent/:unitId', authenticate, authorize('OWNER', 'ADMIN'), asy
   }
 });
 
+// Debug endpoint to list all payments in the database
+router.get('/debug-all-payments', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
+  try {
+    const Payment = (await import('../models/Payment.js')).default;
+    
+    // Get all payments
+    const allPayments = await Payment.find({});
+    
+    console.log('🔍 Total payments in database:', allPayments.length);
+    
+    const paymentSummary = allPayments.map(p => ({
+      id: p._id,
+      amount: p.amount,
+      status: p.status,
+      description: p.description,
+      metadata: {
+        propertyId: p.metadata?.propertyId,
+        unitId: p.metadata?.unitId,
+        originalAmount: p.metadata?.originalAmount,
+        month: p.metadata?.month,
+        type: p.metadata?.type
+      },
+      createdAt: p.createdAt
+    }));
+    
+    res.json({
+      totalPayments: allPayments.length,
+      payments: paymentSummary
+    });
+  } catch (error) {
+    console.error('Error fetching all payments:', error);
+    res.status(500).json({ message: 'Error fetching payments', error: error.message });
+  }
+});
+
 // Get tenant and rent statistics (OWNER, ADMIN)
 router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
   try {
@@ -195,6 +253,14 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
     // Get all payments for these properties
     const propertyIds = properties.map(p => p._id);
     console.log('🔍 Looking for payments with propertyIds:', propertyIds);
+    
+    // Debug: Show all property and unit details
+    properties.forEach(property => {
+      console.log(`🏢 Property: ${property.title} (${property._id})`);
+      property.units.forEach(unit => {
+        console.log(`   🏠 Unit: ${unit.name} (${unit._id}), Status: ${unit.status}, Tenant: ${unit.tenant}`);
+      });
+    });
     
     // Try multiple query approaches to find payments
     const payments1 = await Payment.find({
