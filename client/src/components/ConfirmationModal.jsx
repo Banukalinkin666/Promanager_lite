@@ -11,7 +11,8 @@ const ConfirmationModal = ({
   cancelText = "Cancel",
   confirmButtonColor = "bg-red-600 hover:bg-red-700",
   icon: Icon = AlertTriangle,
-  iconColor = "text-red-600"
+  iconColor = "text-red-600",
+  loading = false
 }) => {
   if (!isOpen) return null;
 
@@ -40,14 +41,23 @@ const ConfirmationModal = ({
           <div className="flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              disabled={loading}
+              className={`px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               {cancelText}
             </button>
             <button
               onClick={onConfirm}
-              className={`px-4 py-2 ${confirmButtonColor} text-white rounded-lg font-medium transition-colors`}
+              disabled={loading}
+              className={`px-4 py-2 ${confirmButtonColor} text-white rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                loading ? 'opacity-75 cursor-not-allowed' : ''
+              }`}
             >
+              {loading && (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              )}
               {confirmText}
             </button>
           </div>

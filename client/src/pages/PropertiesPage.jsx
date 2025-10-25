@@ -430,6 +430,7 @@ export default function PropertiesPage() {
   const [selectedUnitForSchedule, setSelectedUnitForSchedule] = useState(null);
   const [showEndLeaseConfirmation, setShowEndLeaseConfirmation] = useState(false);
   const [unitToEndLease, setUnitToEndLease] = useState(null);
+  const [endingLease, setEndingLease] = useState(false);
   const [showEditLeaseModal, setShowEditLeaseModal] = useState(false);
   const [selectedUnitForEditLease, setSelectedUnitForEditLease] = useState(null);
   const [propertySearchTerm, setPropertySearchTerm] = useState('');
@@ -823,6 +824,7 @@ export default function PropertiesPage() {
   const confirmEndLease = async () => {
     if (!unitToEndLease) return;
 
+    setEndingLease(true);
     try {
       // Find and update the active lease for this unit to TERMINATED status
       const leasesResponse = await api.get(`/move-in/leases?unitId=${unitToEndLease._id}`);
@@ -866,6 +868,8 @@ export default function PropertiesPage() {
     } catch (error) {
       console.error('Error ending lease:', error);
       toast.error(error.response?.data?.message || 'Error ending lease. Please try again.');
+    } finally {
+      setEndingLease(false);
     }
   };
 
@@ -1319,11 +1323,18 @@ export default function PropertiesPage() {
                           {unit.status === 'OCCUPIED' ? (
                             <button
                               onClick={() => handleEndLease(unit)}
-                              className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
-                              title="End Lease"
+                              disabled={endingLease}
+                              className={`px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1 ${
+                                endingLease ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
+                              title={endingLease ? "Ending lease..." : "End Lease"}
                             >
-                              <X size={12} />
-                              End Lease
+                              {endingLease ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+                              ) : (
+                                <X size={12} />
+                              )}
+                              {endingLease ? 'Ending...' : 'End Lease'}
                             </button>
                           ) : (
                             <select 
@@ -1531,13 +1542,14 @@ export default function PropertiesPage() {
         {/* End Lease Confirmation Modal */}
         <ConfirmationModal
           isOpen={showEndLeaseConfirmation}
-          onClose={cancelEndLease}
+          onClose={endingLease ? undefined : cancelEndLease}
           onConfirm={confirmEndLease}
           title="End Lease"
           message="End lease without collecting due rents?"
-          confirmText="OK"
+          confirmText={endingLease ? "Ending Lease..." : "OK"}
           cancelText="Cancel"
           confirmButtonColor="bg-red-600 hover:bg-red-700"
+          loading={endingLease}
         />
 
         {/* Edit Lease Modal */}
