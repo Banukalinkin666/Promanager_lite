@@ -180,52 +180,39 @@ router.post('/proxy-document', authenticate, async (req, res) => {
     let response;
     
     if (isCloudinary) {
-      // For Cloudinary, try to fetch with proper authentication
+      // For Cloudinary, try multiple approaches
       console.log('☁️ Cloudinary URL detected');
       
+      let success = false;
+      let lastError = null;
+      
+      // Method 1: Try direct access (for new uploads without attachment flag)
       try {
-        // Try with Cloudinary SDK secure_url generation
-        // Extract public ID from the URL
-        const urlParts = url.split('/');
-        const uploadIndex = urlParts.findIndex(part => part === 'upload');
-        
-        if (uploadIndex === -1) {
-          throw new Error('Invalid Cloudinary URL');
-        }
-        
-        const publicIdWithFormat = urlParts.slice(uploadIndex + 2).join('/');
-        const publicId = publicIdWithFormat.replace(/\.\w+$/, ''); // Remove file extension
-        
-        console.log('📄 Extracted public ID:', publicId);
-        
-        // Generate a secure signed URL using Cloudinary SDK - FORCE PUBLIC ACCESS
-        const secureUrl = cloudinaryV1.url(publicId, {
-          resource_type: 'raw',
-          secure: true,
-          sign_url: false, // Don't sign - make it publicly accessible
-          transformation: [{ flags: 'attachment' }] // Make it downloadable
-        });
-        
-        console.log('🔒 Generated public URL:', secureUrl);
-        
-        // Fetch using the public URL
-        response = await fetch(secureUrl, {
+        console.log('🔄 Method 1: Direct access...');
+        response = await fetch(url, {
           method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': '*/*'
+          },
           redirect: 'follow'
         });
         
-        if (!response.ok) {
-          throw new Error(`Cloudinary fetch failed: ${response.status} ${response.statusText}`);
+        if (response.ok) {
+          console.log('✅ Method 1: Direct access successful');
+          success = true;
+        } else {
+          throw new Error(`Direct access failed: ${response.status}`);
         }
-        
-        console.log('✅ Cloudinary document fetched via public URL');
-      } catch (cloudError) {
-        console.log('⚠️ Cloudinary fetch failed:', cloudError.message);
-        console.log('⚠️ Trying direct fetch with download parameter...');
-        
-        // Fallback: try direct fetch with download parameter
+      } catch (error) {
+        console.log('⚠️ Method 1 failed:', error.message);
+        lastError = error;
+      }
+      
+      // Method 2: Try with fl_attachment parameter (for old uploads with attachment flag)
+      if (!success) {
         try {
-          // Add fl_attachment to make it downloadable
+          console.log('🔄 Method 2: With fl_attachment parameter...');
           const downloadUrl = url.includes('?') ? `${url}&fl_attachment` : `${url}?fl_attachment`;
           
           response = await fetch(downloadUrl, {
@@ -237,16 +224,67 @@ router.post('/proxy-document', authenticate, async (req, res) => {
             redirect: 'follow'
           });
           
-          if (!response.ok) {
-            console.error('❌ Direct fetch failed:', response.status, response.statusText);
-            throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
+          if (response.ok) {
+            console.log('✅ Method 2: fl_attachment parameter successful');
+            success = true;
+          } else {
+            throw new Error(`fl_attachment failed: ${response.status}`);
+          }
+        } catch (error) {
+          console.log('⚠️ Method 2 failed:', error.message);
+          lastError = error;
+        }
+      }
+      
+      // Method 3: Try with Cloudinary SDK (signed URL)
+      if (!success) {
+        try {
+          console.log('🔄 Method 3: Cloudinary SDK signed URL...');
+          
+          // Extract public ID from the URL
+          const urlParts = url.split('/');
+          const uploadIndex = urlParts.findIndex(part => part === 'upload');
+          
+          if (uploadIndex === -1) {
+            throw new Error('Invalid Cloudinary URL');
           }
           
-          console.log('✅ Cloudinary document fetched directly');
-        } catch (directError) {
-          console.error('❌ All Cloudinary fetch attempts failed:', directError.message);
-          throw new Error(`Failed to fetch Cloudinary document: ${directError.message}`);
+          const publicIdWithFormat = urlParts.slice(uploadIndex + 2).join('/');
+          const publicId = publicIdWithFormat.replace(/\.\w+$/, ''); // Remove file extension
+          
+          console.log('📄 Extracted public ID:', publicId);
+          
+          // Generate a signed URL using Cloudinary SDK
+          const signedUrl = cloudinaryV1.url(publicId, {
+            resource_type: 'raw',
+            secure: true,
+            sign_url: true,
+            transformation: [{ flags: 'attachment' }]
+          });
+          
+          console.log('🔒 Generated signed URL:', signedUrl);
+          
+          response = await fetch(signedUrl, {
+            method: 'GET',
+            redirect: 'follow'
+          });
+          
+          if (response.ok) {
+            console.log('✅ Method 3: Signed URL successful');
+            success = true;
+          } else {
+            throw new Error(`Signed URL failed: ${response.status}`);
+          }
+        } catch (error) {
+          console.log('⚠️ Method 3 failed:', error.message);
+          lastError = error;
         }
+      }
+      
+      // If all methods failed, throw the last error
+      if (!success) {
+        console.error('❌ All Cloudinary fetch methods failed');
+        throw new Error(`Failed to fetch Cloudinary document: ${lastError?.message || 'All methods failed'}`);
       }
     } else {
       // For local files, fetch directly

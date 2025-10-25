@@ -183,27 +183,45 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
           } catch (directError) {
             console.log('⚠️ Direct access failed, trying backend proxy...', directError.message);
             
-            // Fallback to backend proxy
-            const token = localStorage.getItem('token');
-            const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
-            
-            const response = await fetch(`${backendUrl}/move-in/proxy-document`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ url: doc.url })
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('❌ Proxy failed:', response.status, errorText);
-              throw new Error(`Failed to fetch document: ${errorText}`);
+            try {
+              // Fallback to backend proxy
+              const token = localStorage.getItem('token');
+              const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+              
+              const response = await fetch(`${backendUrl}/move-in/proxy-document`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ url: doc.url })
+              });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Proxy failed:', response.status, errorText);
+                throw new Error(`Failed to fetch document: ${errorText}`);
+              }
+              
+              blob = await response.blob();
+              console.log('✅ Document fetched via proxy');
+            } catch (proxyError) {
+              console.log('⚠️ Proxy also failed, trying direct URL opening...', proxyError.message);
+              
+              // Final fallback: open URL directly in new tab
+              console.log('🔄 Opening URL directly in new tab...');
+              const newWindow = window.open(doc.url, '_blank');
+              
+              if (!newWindow) {
+                console.log('⚠️ Popup blocked, showing user message');
+                toast.error('Popup blocked. Please allow popups for this site and try again.');
+                return;
+              } else {
+                console.log('🪟 Opened URL directly in new window');
+                toast.success('Document opened in new tab');
+                return;
+              }
             }
-            
-            blob = await response.blob();
-            console.log('✅ Document fetched via proxy');
           }
           
           // Handle the blob (open in new window or download)
