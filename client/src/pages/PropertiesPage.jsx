@@ -11,7 +11,7 @@ import {
 import api from '../lib/api.js';
 import EnhancedMoveInModal from '../components/EnhancedMoveInModal.jsx';
 import UnitDetailsModal from '../components/UnitDetailsModal.jsx';
-import RentScheduleModal from '../components/RentScheduleModal.jsx';
+import LeaseDetailsViewModal from '../components/LeaseDetailsViewModal.jsx';
 import ConfirmationModal from '../components/ConfirmationModal.jsx';
 import EditLeaseModal from '../components/EditLeaseModal.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
@@ -1358,10 +1358,10 @@ export default function PropertiesPage() {
                               <button
                                 onClick={() => handleViewRentSchedule(unit)}
                                 className="px-3 py-1 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600 transition-colors flex items-center gap-1"
-                                title="View Rent Payment Schedule"
+                                title="View Lease Details"
                               >
                                 <Calendar size={12} />
-                                Schedule
+                                View Lease Details
                               </button>
                             </>
                           )}
@@ -1514,8 +1514,8 @@ export default function PropertiesPage() {
           property={selectedProperty}
         />
 
-        {/* Rent Schedule Modal */}
-        <RentScheduleModal
+        {/* Lease Details View Modal */}
+        <LeaseDetailsViewModal
           isOpen={showRentScheduleModal}
           onClose={() => {
             setShowRentScheduleModal(false);

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, CheckCircle, AlertCircle, X, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertCircle, X, RefreshCw, FileText, Download, User, Building, DollarSign, Mail, Phone, CreditCard, Zap, Droplets, Home } from 'lucide-react';
 import api from '../lib/api';
 
-const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
+const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
   const [lease, setLease] = useState(null);
+  const [tenant, setTenant] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,7 +45,7 @@ const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
       return;
     }
     if (unit.status !== 'OCCUPIED') {
-      setError('Unit is not occupied. No rent schedule available.');
+      setError('Unit is not occupied. No lease details available.');
       return;
     }
 
@@ -58,6 +59,16 @@ const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
         const leaseData = leaseResponse.data[0];
         setLease(leaseData);
 
+        // Fetch tenant details
+        if (leaseData.tenant && leaseData.tenant._id) {
+          try {
+            const tenantResponse = await api.get(`/tenants/${leaseData.tenant._id}`);
+            setTenant(tenantResponse.data);
+          } catch (err) {
+            console.error('Error loading tenant:', err);
+          }
+        }
+
         // Fetch payments for this lease/unit
         const paymentsResponse = await api.get(`/payments?unitId=${unit._id}`);
         setPayments(paymentsResponse.data || []);
@@ -65,8 +76,8 @@ const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
         setError('No lease information found for this unit.');
       }
     } catch (err) {
-      setError('Failed to load rent schedule.');
-      console.error('Error loading rent schedule:', err);
+      setError('Failed to load lease details.');
+      console.error('Error loading lease details:', err);
     } finally {
       setLoading(false);
     }
@@ -133,15 +144,21 @@ const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
     return schedule;
   };
 
+  const downloadDocument = (doc) => {
+    if (doc && doc.url) {
+      window.open(doc.url, '_blank');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-5xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Rent Payment Schedule
+              Lease Details
             </h2>
             <div className="flex items-center gap-2">
               <button
@@ -163,28 +180,68 @@ const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
           {loading ? (
             <div className="flex justify-center items-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600 dark:text-gray-400">Loading rent schedule...</span>
+              <span className="ml-2 text-gray-600 dark:text-gray-400">Loading lease details...</span>
             </div>
           ) : error ? (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <div className="flex items-center">
-                <div className="text-red-400 mr-2">⚠️</div>
+                <AlertCircle size={20} className="text-red-400 mr-2" />
                 <p className="text-red-800 dark:text-red-200">{error}</p>
-              </div>
-            </div>
-          ) : !unit ? (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <div className="flex items-center">
-                <div className="text-yellow-400 mr-2">⚠️</div>
-                <p className="text-yellow-800 dark:text-yellow-200">No unit information available.</p>
               </div>
             </div>
           ) : lease ? (
             <div className="space-y-6">
-              {/* Unit & Property Info */}
+              {/* Tenant Information Card */}
+              {tenant && (
+                <div className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900 dark:to-green-900 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <User size={20} />
+                    Tenant Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3">
+                      <User size={18} className="text-gray-600 dark:text-gray-300" />
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Name</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {tenant.firstName} {tenant.middleName || ''} {tenant.lastName}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Mail size={18} className="text-gray-600 dark:text-gray-300" />
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Email</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{tenant.email || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Phone size={18} className="text-gray-600 dark:text-gray-300" />
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Phone</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{tenant.phone || 'N/A'}</p>
+                      </div>
+                    </div>
+                    {(tenant.nic || tenant.passportNo) && (
+                      <div className="flex items-center gap-3">
+                        <CreditCard size={18} className="text-gray-600 dark:text-gray-300" />
+                        <div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">ID</p>
+                          <p className="font-medium text-gray-900 dark:text-white">{tenant.nic || tenant.passportNo}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Property & Lease Information */}
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Unit Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                  <Building size={20} />
+                  Property & Lease Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Property</p>
                     <p className="font-medium text-gray-900 dark:text-white">{property?.title || 'N/A'}</p>
@@ -194,23 +251,91 @@ const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
                     <p className="font-medium text-gray-900 dark:text-white">{unit?.name || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Tenant</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Lease Period</p>
                     <p className="font-medium text-gray-900 dark:text-white">
-                      {unit?.tenant?.name || `${unit?.tenant?.firstName || ''} ${unit?.tenant?.lastName || ''}`.trim() || 'N/A'}
+                      {new Date(lease.leaseStartDate).toLocaleDateString()} - {new Date(lease.leaseEndDate).toLocaleDateString()}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Monthly Rent</p>
                     <p className="font-medium text-gray-900 dark:text-white">${lease.monthlyRent}</p>
                   </div>
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Security Deposit</p>
+                    <p className="font-medium text-gray-900 dark:text-white">${lease.securityDeposit || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Agreement Number</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{lease.agreementNumber || 'N/A'}</p>
+                  </div>
                 </div>
               </div>
 
-              {/* Rent Schedule */}
+              {/* Uploaded Documents */}
+              {lease.documents && (lease.documents.signedLease || lease.documents.idProof || lease.documents.depositReceipt || lease.documents.moveInInspection) && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <FileText size={20} />
+                    Uploaded Documents
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {lease.documents.signedLease && (
+                      <button
+                        onClick={() => downloadDocument(lease.documents.signedLease)}
+                        className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText size={16} className="text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm text-gray-900 dark:text-white">Signed Lease Agreement</span>
+                        </div>
+                        <Download size={16} className="text-gray-600 dark:text-gray-300" />
+                      </button>
+                    )}
+                    {lease.documents.idProof && (
+                      <button
+                        onClick={() => downloadDocument(lease.documents.idProof)}
+                        className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText size={16} className="text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm text-gray-900 dark:text-white">ID Proof</span>
+                        </div>
+                        <Download size={16} className="text-gray-600 dark:text-gray-300" />
+                      </button>
+                    )}
+                    {lease.documents.depositReceipt && (
+                      <button
+                        onClick={() => downloadDocument(lease.documents.depositReceipt)}
+                        className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText size={16} className="text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm text-gray-900 dark:text-white">Deposit Receipt</span>
+                        </div>
+                        <Download size={16} className="text-gray-600 dark:text-gray-300" />
+                      </button>
+                    )}
+                    {lease.documents.moveInInspection && (
+                      <button
+                        onClick={() => downloadDocument(lease.documents.moveInInspection)}
+                        className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText size={16} className="text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm text-gray-900 dark:text-white">Move-In Inspection Report</span>
+                        </div>
+                        <Download size={16} className="text-gray-600 dark:text-gray-300" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Rent Payment Schedule */}
               <div>
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                   <Calendar size={20} />
-                  Payment Schedule
+                  Rent Payment Schedule
                 </h4>
                 <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                   <div className="space-y-3">
@@ -280,10 +405,8 @@ const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
             </div>
           ) : (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <div className="flex items-center">
-                <div className="text-yellow-400 mr-2">⚠️</div>
-                <p className="text-yellow-800 dark:text-yellow-200">No lease information found for this unit.</p>
-              </div>
+              <AlertCircle size={20} className="text-yellow-400 mr-2 inline" />
+              <p className="text-yellow-800 dark:text-yellow-200 inline">No lease information found for this unit.</p>
             </div>
           )}
         </div>
@@ -292,4 +415,4 @@ const RentScheduleModal = ({ unit, property, isOpen, onClose }) => {
   );
 };
 
-export default RentScheduleModal;
+export default LeaseDetailsViewModal;
