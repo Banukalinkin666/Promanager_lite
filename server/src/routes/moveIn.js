@@ -176,43 +176,52 @@ router.post('/proxy-document', authenticate, async (req, res) => {
     
     let response;
     
-    if (isCloudinary) {
+             if (isCloudinary) {
       // For Cloudinary, try to fetch without authentication first
       // Cloudinary URLs are usually public
       console.log('☁️ Cloudinary URL detected');
-      
-      try {
-        // Try direct access without authentication
-        response = await fetch(url, {
-          method: 'GET',
-          redirect: 'follow'
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Cloudinary fetch failed: ${response.status}`);
-        }
-        
-        console.log('✅ Cloudinary document fetched successfully');
-      } catch (cloudError) {
-        console.log('⚠️ Direct Cloudinary fetch failed, trying with headers...');
-        
-        // If direct access fails, try with additional headers
-        response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'Mozilla/5.0',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9'
-          },
-          redirect: 'follow'
-        });
-        
-        if (!response.ok) {
-          console.error('❌ Cloudinary fetch failed:', response.status, response.statusText);
-          throw new Error(`Failed to fetch document: ${response.statusText}`);
-        }
-      }
-    } else {
+       
+       try {
+         // Try direct access without authentication
+         response = await fetch(url, {
+           method: 'GET',
+           redirect: 'follow'
+         });
+         
+         if (!response.ok) {
+           throw new Error(`Cloudinary fetch failed: ${response.status} ${response.statusText}`);
+         }
+         
+         console.log('✅ Cloudinary document fetched successfully');
+       } catch (cloudError) {
+         console.log('⚠️ Direct Cloudinary fetch failed:', cloudError.message);
+         console.log('⚠️ Trying with additional headers...');
+         
+         // If direct access fails, try with additional headers
+         try {
+           response = await fetch(url, {
+             method: 'GET',
+             headers: {
+               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+               'Accept': '*/*',
+               'Accept-Language': 'en-US,en;q=0.9',
+               'Referer': 'https://res.cloudinary.com/'
+             },
+             redirect: 'follow'
+           });
+           
+           if (!response.ok) {
+             console.error('❌ Cloudinary fetch with headers failed:', response.status, response.statusText);
+             throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
+           }
+           
+           console.log('✅ Cloudinary document fetched with headers');
+         } catch (headerError) {
+           console.error('❌ All Cloudinary fetch attempts failed:', headerError.message);
+           throw new Error(`Failed to fetch Cloudinary document: ${headerError.message}`);
+         }
+       }
+     } else {
       // For local files, fetch directly
       console.log('📁 Local file detected');
       response = await fetch(url);

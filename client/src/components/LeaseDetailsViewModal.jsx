@@ -160,13 +160,20 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
       let blob;
       let fileName = doc.filename || 'document';
       
-      // If it's a Cloudinary URL, try direct access first, then fallback to proxy
+      // If it's a Cloudinary URL, open directly (Cloudinary URLs should be publicly accessible)
       if (doc.url.startsWith('http://') || doc.url.startsWith('https://')) {
-        console.log('🔗 Cloudinary URL detected');
+        console.log('🔗 Cloudinary URL detected - opening directly');
         
-        try {
-          // First try direct access
-          console.log('🔄 Attempting direct access...');
+        // Check if it's actually Cloudinary
+        if (doc.url.includes('cloudinary.com')) {
+          // For Cloudinary URLs, open directly in new tab
+          console.log('☁️ Opening Cloudinary URL directly');
+          window.open(doc.url, '_blank');
+          toast.success('Document opened in new tab');
+          return;
+        } else {
+          // For other HTTP URLs, try to fetch
+          console.log('🔄 Attempting to fetch document...');
           const directResponse = await fetch(doc.url);
           
           if (directResponse.ok) {
@@ -175,30 +182,6 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
           } else {
             throw new Error(`Direct access failed: ${directResponse.status}`);
           }
-        } catch (directError) {
-          console.log('⚠️ Direct access failed, trying proxy...', directError.message);
-          
-          // Fallback to proxy
-          const token = localStorage.getItem('token');
-          const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
-          
-          const response = await fetch(`${backendUrl}/move-in/proxy-document`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ url: doc.url })
-          });
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Proxy failed:', response.status, errorText);
-            throw new Error(`Proxy failed: ${response.status} - ${errorText}`);
-          }
-          
-          blob = await response.blob();
-          console.log('✅ Document fetched via proxy');
         }
       } else {
         // For local paths, construct the full URL
