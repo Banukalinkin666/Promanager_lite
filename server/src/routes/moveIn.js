@@ -42,6 +42,63 @@ router.get('/test-pdf', (req, res) => {
   }
 });
 
+// Test fetch-document endpoint - NO authentication required for testing
+router.post('/test-fetch', (req, res) => {
+  console.log('🧪 Test fetch endpoint hit!');
+  console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ message: 'URL is required' });
+    }
+    
+    console.log('📥 Testing fetch to:', url);
+    
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': '*/*'
+      },
+      redirect: 'follow'
+    })
+    .then(response => {
+      console.log('📊 Test response status:', response.status);
+      console.log('📊 Test response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        return res.status(500).json({ 
+          message: `Test fetch failed: HTTP ${response.status}`,
+          status: response.status
+        });
+      }
+      
+      return response.arrayBuffer();
+    })
+    .then(buffer => {
+      console.log('📦 Test buffer size:', buffer.byteLength, 'bytes');
+      res.json({ 
+        message: 'Test fetch successful',
+        bufferSize: buffer.byteLength,
+        status: 'success'
+      });
+    })
+    .catch(error => {
+      console.error('❌ Test fetch error:', error);
+      res.status(500).json({ 
+        message: 'Test fetch failed',
+        error: error.message 
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ Test endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Generate rent payment records for a lease
 const generateRentPayments = async (lease, property, unit) => {
   const payments = [];
@@ -333,15 +390,20 @@ router.get('/tenants', authenticate, authorize('OWNER', 'ADMIN'), async (req, re
 
 // Fetch and serve documents (for uploaded documents like signed lease, ID proof, etc.)
 router.post('/fetch-document', authenticate, async (req, res) => {
+  console.log('🚀 fetch-document endpoint called');
+  console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+  console.log('👤 User:', req.user?.id, 'Role:', req.user?.role);
+  
   try {
     const { url, filename } = req.body;
     
     if (!url) {
+      console.log('❌ No URL provided');
       return res.status(400).json({ message: 'URL is required' });
     }
     
     console.log('📥 Fetching document from:', url);
-    console.log('👤 User:', req.user?.id, 'Role:', req.user?.role);
+    console.log('📄 Filename:', filename);
     
     let response;
     
@@ -358,11 +420,16 @@ router.post('/fetch-document', authenticate, async (req, res) => {
         redirect: 'follow'
       });
       
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
         console.error('❌ Fetch failed with status:', response.status);
+        const errorText = await response.text();
+        console.error('❌ Error response body:', errorText);
         return res.status(500).json({ 
           message: `Failed to fetch document: HTTP ${response.status}`,
-          error: `Server returned ${response.status}` 
+          error: `Server returned ${response.status}: ${errorText}` 
         });
       }
       
@@ -370,14 +437,19 @@ router.post('/fetch-document', authenticate, async (req, res) => {
       
       // Get the content type from response
       const contentType = response.headers.get('content-type') || 'application/pdf';
+      console.log('📄 Content type:', contentType);
       
       // Set appropriate headers
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `inline; filename="${filename || url.split('/').pop()}"`);
       res.setHeader('Cache-Control', 'public, max-age=31536000');
       
+      console.log('📤 Streaming response...');
+      
       // Stream the response
       const buffer = await response.arrayBuffer();
+      console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
+      
       res.send(Buffer.from(buffer));
       
       console.log('✅ Document served successfully');
