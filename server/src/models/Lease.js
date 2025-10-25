@@ -12,6 +12,7 @@ const LeaseSchema = new mongoose.Schema(
     leaseEndDate: { type: Date, required: true },
     monthlyRent: { type: Number, required: true },
     securityDeposit: { type: Number, default: 0 },
+    advancePayment: { type: Number, default: 0 }, // Advance payment amount
     
     // Agreement details
     agreementNumber: { type: String, unique: true },

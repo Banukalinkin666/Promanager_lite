@@ -370,6 +370,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
         leaseEndDate: formData.leaseEndDate,
         monthlyRent: parseFloat(formData.monthlyRent),
         securityDeposit: parseFloat(formData.securityDeposit || 0),
+        advancePayment: parseFloat(formData.advancePayment || 0),
         terms: {
           // Add any additional terms if needed
           lateFeeAmount: 50,

@@ -105,27 +105,55 @@ const generateRentPayments = async (lease, property, unit) => {
   const startDate = new Date(lease.leaseStartDate);
   const endDate = new Date(lease.leaseEndDate);
   
+  // Calculate how many months the advance payment covers
+  const advancePayment = lease.advancePayment || 0;
+  const monthlyRent = lease.monthlyRent;
+  const monthsCoveredByAdvance = Math.floor(advancePayment / monthlyRent);
+  const remainingAdvance = advancePayment % monthlyRent;
+  
+  console.log(`💰 Advance payment: $${advancePayment}, Monthly rent: $${monthlyRent}`);
+  console.log(`📅 Advance covers ${monthsCoveredByAdvance} full months + $${remainingAdvance} remaining`);
+  
   // Generate monthly payments for the entire lease period
   let currentDate = new Date(startDate);
   let monthCount = 1;
+  let advanceApplied = 0;
   
   while (currentDate <= endDate) {
     const dueDate = new Date(currentDate);
     dueDate.setDate(1); // First day of the month
     
+    let paymentAmount = monthlyRent;
+    let description = `Rent payment for ${currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+    
+    // Apply advance payment to early months
+    if (monthCount <= monthsCoveredByAdvance) {
+      // This month is fully covered by advance payment
+      paymentAmount = 0;
+      description += ` (Fully covered by advance payment)`;
+      advanceApplied += monthlyRent;
+    } else if (monthCount === monthsCoveredByAdvance + 1 && remainingAdvance > 0) {
+      // This month is partially covered by remaining advance
+      paymentAmount = monthlyRent - remainingAdvance;
+      description += ` (Partially covered by advance payment: $${remainingAdvance} applied)`;
+      advanceApplied += remainingAdvance;
+    }
+    
     const payment = {
       tenant: lease.tenant,
-      amount: lease.monthlyRent,
+      amount: paymentAmount,
       method: 'CARD', // Default method, will be updated when paid
-      status: 'PENDING',
-      description: `Rent payment for ${currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
+      status: paymentAmount === 0 ? 'SUCCEEDED' : 'PENDING', // Mark as paid if covered by advance
+      description: description,
       metadata: {
         propertyId: lease.property,
         unitId: lease.unit,
         unitNumber: unit.name, // Store the actual unit number (100, 101, 204, 302)
         month: currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         dueDate: dueDate.toISOString().split('T')[0],
-        type: 'rent_payment'
+        type: 'rent_payment',
+        advanceApplied: advanceApplied,
+        originalAmount: monthlyRent
       }
     };
     
@@ -136,6 +164,7 @@ const generateRentPayments = async (lease, property, unit) => {
     monthCount++;
   }
   
+  console.log(`✅ Generated ${payments.length} payment records with advance payment applied`);
   return await Payment.insertMany(payments);
 };
 
@@ -515,6 +544,7 @@ router.post('/:propertyId/:unitId', authenticate, authorize('OWNER', 'ADMIN'), a
       leaseEndDate, 
       monthlyRent, 
       securityDeposit = 0,
+      advancePayment = 0,
       terms = {},
       documents = {}
     } = req.body;
@@ -590,6 +620,7 @@ router.post('/:propertyId/:unitId', authenticate, authorize('OWNER', 'ADMIN'), a
       leaseEndDate: new Date(leaseEndDate),
       monthlyRent: parseFloat(monthlyRent),
       securityDeposit: parseFloat(securityDeposit),
+      advancePayment: parseFloat(advancePayment),
       terms: {
         lateFeeAmount: parseFloat(terms.lateFeeAmount) || 50,
         lateFeeAfterDays: parseInt(terms.lateFeeAfterDays) || 5,
@@ -893,6 +924,7 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
       leaseEndDate: updates.leaseEndDate,
       monthlyRent: updates.monthlyRent,
       securityDeposit: updates.securityDeposit,
+      advancePayment: updates.advancePayment,
       terms: updates.terms,
       notes: updates.notes
     };

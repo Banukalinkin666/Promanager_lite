@@ -233,7 +233,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     doc.moveDown(0.8);
     
     const termsBoxY = doc.y;
-    const termsBoxHeight = 80;
+    const termsBoxHeight = leaseData.advancePayment && leaseData.advancePayment > 0 ? 120 : 80;
     drawBox(marginLeft, termsBoxY, contentWidth, termsBoxHeight, '#fff3cd');
     
     // Left column - Lease dates and rent
@@ -268,6 +268,21 @@ export const streamRentAgreementPDF = (leaseData, res) => {
        .text('Security Deposit:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
        .text(`$${leaseData.securityDeposit || 0}`, termsValueX, currentY, { width: 200 });
+    
+    // Add advance payment if it exists
+    if (leaseData.advancePayment && leaseData.advancePayment > 0) {
+      currentY += 20;
+      doc.font('Helvetica-Bold')
+         .text('Advance Payment:', labelX, currentY, { width: termsLabelWidth });
+      doc.font('Helvetica')
+         .text(`$${leaseData.advancePayment}`, termsValueX, currentY, { width: 200 });
+      
+      // Add note about advance payment application
+      currentY += 15;
+      doc.fontSize(9).font('Helvetica')
+         .fillColor('#666666')
+         .text(`(This advance payment will be applied to future rent payments)`, labelX, currentY, { width: contentWidth - 20 });
+    }
     
     doc.y = termsBoxY + termsBoxHeight + 10;
     doc.moveDown(1.5);
