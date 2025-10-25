@@ -9,6 +9,10 @@ import {
   Calendar, Clock
 } from 'lucide-react';
 import api from '../lib/api.js';
+import EnhancedMoveInModal from '../components/EnhancedMoveInModal.jsx';
+import UnitDetailsModal from '../components/UnitDetailsModal.jsx';
+import LeaseDetailsViewModal from '../components/LeaseDetailsViewModal.jsx';
+import EditLeaseModal from '../components/EditLeaseModal.jsx';
 import ConfirmationModal from '../components/ConfirmationModal.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { useToast } from '../components/ToastContainer.jsx';
@@ -426,6 +430,14 @@ export default function PropertiesPage() {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', data: null });
   const [uploading, setUploading] = useState(false);
   const [allPayments, setAllPayments] = useState([]);
+  const [showMoveInModal, setShowMoveInModal] = useState(false);
+  const [selectedUnitForMoveIn, setSelectedUnitForMoveIn] = useState(null);
+  const [showUnitDetailsModal, setShowUnitDetailsModal] = useState(false);
+  const [selectedUnitForDetails, setSelectedUnitForDetails] = useState(null);
+  const [showRentScheduleModal, setShowRentScheduleModal] = useState(false);
+  const [selectedUnitForSchedule, setSelectedUnitForSchedule] = useState(null);
+  const [showEditLeaseModal, setShowEditLeaseModal] = useState(false);
+  const [selectedUnitForEditLease, setSelectedUnitForEditLease] = useState(null);
   const [unitForm, setUnitForm] = useState({
     unit: '',
     type: 'APARTMENT',
@@ -659,9 +671,8 @@ export default function PropertiesPage() {
       return;
     }
     
-    navigate(`/properties/${selectedProperty._id}/units/${unit._id}/edit`, {
-      state: { property: selectedProperty, unit: unit }
-    });
+    setEditingUnit(unit);
+    setShowUnitForm(true);
   };
 
   const deleteUnit = async (unit) => {
@@ -750,13 +761,8 @@ export default function PropertiesPage() {
   };
 
   const handleMoveIn = (unit) => {
-    // Navigate to the move-in page instead of opening modal
-    navigate(`/move-in/${selectedProperty._id}/${unit._id}`, {
-      state: {
-        property: selectedProperty,
-        unit: unit
-      }
-    });
+    setSelectedUnitForMoveIn(unit);
+    setShowMoveInModal(true);
   };
 
   const handleMoveInSuccess = () => {
@@ -764,15 +770,13 @@ export default function PropertiesPage() {
   };
 
   const handleViewUnit = (unit) => {
-    navigate(`/properties/${selectedProperty._id}/units/${unit._id}`, {
-      state: { property: selectedProperty, unit: unit }
-    });
+    setSelectedUnitForDetails(unit);
+    setShowUnitDetailsModal(true);
   };
 
   const handleViewRentSchedule = (unit) => {
-    navigate(`/properties/${selectedProperty._id}/units/${unit._id}/lease/details`, {
-      state: { property: selectedProperty, unit: unit }
-    });
+    setSelectedUnitForSchedule(unit);
+    setShowRentScheduleModal(true);
   };
 
   // Check if any rent has been collected for a unit
@@ -793,9 +797,8 @@ export default function PropertiesPage() {
       toast.warning('Cannot edit lease after rent has been collected.');
       return;
     }
-    navigate(`/properties/${selectedProperty._id}/units/${unit._id}/lease/edit`, {
-      state: { property: selectedProperty, unit: unit }
-    });
+    setSelectedUnitForEditLease(unit);
+    setShowEditLeaseModal(true);
   };
 
   const handleEndLease = (unit) => {
@@ -1505,6 +1508,55 @@ export default function PropertiesPage() {
           loading={endingLease}
         />
 
+
+        {/* Move-In Modal */}
+        <EnhancedMoveInModal
+          isOpen={showMoveInModal}
+          onClose={() => {
+            setShowMoveInModal(false);
+            setSelectedUnitForMoveIn(null);
+          }}
+          unit={selectedUnitForMoveIn}
+          property={selectedProperty}
+          onSuccess={handleMoveInSuccess}
+        />
+
+        {/* Unit Details Modal */}
+        <UnitDetailsModal
+          isOpen={showUnitDetailsModal}
+          onClose={() => {
+            setShowUnitDetailsModal(false);
+            setSelectedUnitForDetails(null);
+          }}
+          unit={selectedUnitForDetails}
+          property={selectedProperty}
+        />
+
+        {/* Lease Details View Modal */}
+        <LeaseDetailsViewModal
+          isOpen={showRentScheduleModal}
+          onClose={() => {
+            setShowRentScheduleModal(false);
+            setSelectedUnitForSchedule(null);
+          }}
+          unit={selectedUnitForSchedule}
+          property={selectedProperty}
+        />
+
+        {/* Edit Lease Modal */}
+        <EditLeaseModal
+          isOpen={showEditLeaseModal}
+          onClose={() => setShowEditLeaseModal(false)}
+          unit={selectedUnitForEditLease}
+          property={selectedProperty}
+          onSuccess={() => {
+            // Refresh property data
+            if (selectedProperty) {
+              loadProperty(selectedProperty._id);
+            }
+            load();
+          }}
+        />
 
         {/* Confirm Dialog (for unit delete, etc.) */}
         <ConfirmDialog

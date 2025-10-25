@@ -15,10 +15,6 @@ import PaymentsPage from './pages/PaymentsPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import MoveInPage from './pages/MoveInPage.jsx';
-import UnitEditPage from './pages/UnitEditPage.jsx';
-import UnitDetailsPage from './pages/UnitDetailsPage.jsx';
-import LeaseEditPage from './pages/LeaseEditPage.jsx';
-import LeaseDetailsPage from './pages/LeaseDetailsPage.jsx';
 
 function ProtectedRoute({ children, roles }) {
   const { user } = useAuth();
@@ -686,10 +682,6 @@ export default function App() {
             <Route path="/properties" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
             <Route path="/properties/:id" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
             <Route path="/move-in/:propertyId/:unitId" element={<ProtectedRoute roles={['OWNER','ADMIN']}><MoveInPage /></ProtectedRoute>} />
-            <Route path="/properties/:propertyId/units/:unitId" element={<ProtectedRoute roles={['OWNER','ADMIN']}><UnitDetailsPage /></ProtectedRoute>} />
-            <Route path="/properties/:propertyId/units/:unitId/edit" element={<ProtectedRoute roles={['OWNER','ADMIN']}><UnitEditPage /></ProtectedRoute>} />
-            <Route path="/properties/:propertyId/units/:unitId/lease/edit" element={<ProtectedRoute roles={['OWNER','ADMIN']}><LeaseEditPage /></ProtectedRoute>} />
-            <Route path="/properties/:propertyId/units/:unitId/lease/details" element={<ProtectedRoute roles={['OWNER','ADMIN']}><LeaseDetailsPage /></ProtectedRoute>} />
             <Route path="/tenants" element={<ProtectedRoute roles={['OWNER','ADMIN']}><TenantsPage /></ProtectedRoute>} />
             <Route path="/payments" element={<ProtectedRoute roles={['TENANT','OWNER','ADMIN']}><PaymentsPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute roles={['OWNER','ADMIN']}><ReportsPage /></ProtectedRoute>} />
