@@ -40,8 +40,8 @@ function Sidebar({ isOpen, onToggle }) {
       roles: ['ADMIN', 'OWNER', 'TENANT'],
       hasSubmenu: true,
       submenu: [
-        { path: '/settings/appearance', label: 'Appearance', icon: Palette },
-        { path: '/settings/user-management', label: 'User Management', icon: Shield, roles: ['ADMIN'] }
+        { path: '/settings/user-management', label: 'User Management', icon: Shield, roles: ['ADMIN'] },
+        { path: '/settings/appearance', label: 'Appearance', icon: Palette }
       ]
     },
   ];

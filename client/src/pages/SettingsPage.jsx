@@ -44,12 +44,12 @@ export default function SettingsPage() {
 
   // Set active tab based on URL
   useEffect(() => {
-    if (location.pathname === '/settings/appearance') {
-      setActiveTab('appearance');
-    } else if (location.pathname === '/settings/user-management') {
+    if (location.pathname === '/settings/user-management') {
       setActiveTab('user-management');
+    } else if (location.pathname === '/settings/appearance') {
+      setActiveTab('appearance');
     } else {
-      setActiveTab('appearance'); // Default to appearance for all users
+      setActiveTab('user-management'); // Default to user management for admins, appearance for others
     }
   }, [location.pathname]);
 
@@ -280,8 +280,8 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'appearance', label: 'Appearance', icon: Palette },
-    ...(user?.role === 'ADMIN' ? [{ id: 'user-management', label: 'User Management', icon: Shield }] : [])
+    ...(user?.role === 'ADMIN' ? [{ id: 'user-management', label: 'User Management', icon: Shield }] : []),
+    { id: 'appearance', label: 'Appearance', icon: Palette }
   ];
 
   return (
