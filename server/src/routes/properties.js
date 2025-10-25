@@ -196,12 +196,43 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
     const propertyIds = properties.map(p => p._id);
     console.log('🔍 Looking for payments with propertyIds:', propertyIds);
     
-    const payments = await Payment.find({
+    // Try multiple query approaches to find payments
+    const payments1 = await Payment.find({
       'metadata.propertyId': { $in: propertyIds }
     });
     
-    console.log('📊 Found payments:', payments.length);
-    console.log('📊 Payment details:', payments.map(p => ({
+    const payments2 = await Payment.find({
+      'metadata.propertyId': { $in: propertyIds.map(id => id.toString()) }
+    });
+    
+    const payments3 = await Payment.find({
+      'metadata.propertyId': { $in: propertyIds.map(id => new mongoose.Types.ObjectId(id)) }
+    });
+    
+    // Also try to find payments by unit IDs
+    const allUnitIds = [];
+    properties.forEach(property => {
+      property.units.forEach(unit => {
+        allUnitIds.push(unit._id);
+      });
+    });
+    
+    const payments4 = await Payment.find({
+      'metadata.unitId': { $in: allUnitIds }
+    });
+    
+    console.log('📊 Query 1 (propertyId as ObjectId):', payments1.length);
+    console.log('📊 Query 2 (propertyId as string):', payments2.length);
+    console.log('📊 Query 3 (propertyId as new ObjectId):', payments3.length);
+    console.log('📊 Query 4 (unitId):', payments4.length);
+    
+    // Use the query that returns the most results
+    const payments = payments1.length > payments2.length ? payments1 : payments2;
+    const finalPayments = payments.length > payments3.length ? payments : payments3;
+    const allPayments = finalPayments.length > payments4.length ? finalPayments : payments4;
+    
+    console.log('📊 Found payments:', allPayments.length);
+    console.log('📊 Payment details:', allPayments.map(p => ({
       id: p._id,
       amount: p.amount,
       status: p.status,
@@ -229,9 +260,17 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
       });
       
       // Calculate rent statistics for this property
-      const propertyPayments = payments.filter(payment => 
-        payment.metadata?.propertyId?.toString() === property._id.toString()
-      );
+      const propertyPayments = allPayments.filter(payment => {
+        const paymentPropertyId = payment.metadata?.propertyId?.toString();
+        const paymentUnitId = payment.metadata?.unitId?.toString();
+        const currentPropertyId = property._id.toString();
+        
+        // Check if payment belongs to this property either directly or through its units
+        const belongsToProperty = paymentPropertyId === currentPropertyId;
+        const belongsToUnit = property.units.some(unit => unit._id.toString() === paymentUnitId);
+        
+        return belongsToProperty || belongsToUnit;
+      });
       
       console.log(`🏠 Property ${property.title} (${property._id}):`);
       console.log(`   📊 Found ${propertyPayments.length} payments for this property`);
