@@ -166,10 +166,79 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
         
         // Check if it's actually Cloudinary
         if (doc.url.includes('cloudinary.com')) {
-          // For Cloudinary URLs, open directly - browser will handle authentication if needed
-          console.log('☁️ Cloudinary URL - opening directly in new tab');
-          window.open(doc.url, '_blank');
-          toast.success('Document opened in new tab');
+          // For Cloudinary URLs, try direct access first, then fallback to proxy
+          console.log('☁️ Cloudinary URL detected');
+          
+          try {
+            // First try direct access
+            console.log('🔄 Attempting direct access...');
+            const directResponse = await fetch(doc.url);
+            
+            if (directResponse.ok) {
+              blob = await directResponse.blob();
+              console.log('✅ Document fetched directly');
+            } else {
+              throw new Error(`Direct access failed: ${directResponse.status}`);
+            }
+          } catch (directError) {
+            console.log('⚠️ Direct access failed, trying backend proxy...', directError.message);
+            
+            // Fallback to backend proxy
+            const token = localStorage.getItem('token');
+            const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+            
+            const response = await fetch(`${backendUrl}/move-in/proxy-document`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ url: doc.url })
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('❌ Proxy failed:', response.status, errorText);
+              throw new Error(`Failed to fetch document: ${errorText}`);
+            }
+            
+            blob = await response.blob();
+            console.log('✅ Document fetched via proxy');
+          }
+          
+          // Handle the blob (open in new window or download)
+          if (blob.size === 0) {
+            throw new Error('Document is empty');
+          }
+          
+          // Create a URL for the blob
+          const blobUrl = window.URL.createObjectURL(blob);
+          console.log('🔗 Blob URL created:', blobUrl);
+          
+          // Try to open in new window first
+          const newWindow = window.open(blobUrl, '_blank');
+          
+          if (!newWindow) {
+            // If popup was blocked, trigger download
+            console.log('⚠️ Popup blocked, triggering download instead');
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            console.log('📥 Download triggered');
+          } else {
+            console.log('🪟 Opened in new window');
+          }
+          
+          // Clean up the blob URL after a delay
+          setTimeout(() => {
+            window.URL.revokeObjectURL(blobUrl);
+            console.log('🧹 Blob URL cleaned up');
+          }, 1000);
+          
+          toast.success('Document opened successfully');
           return;
         } else {
           // For other HTTP URLs, try to fetch

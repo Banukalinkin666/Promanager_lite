@@ -30,7 +30,15 @@ if (USE_CLOUD_STORAGE && process.env.CLOUDINARY_CLOUD_NAME) {
     params: {
       folder: 'spm/documents',
       allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx'],
-      resource_type: 'auto' // Allow both images and raw files (PDFs, docs)
+      resource_type: 'auto', // Allow both images and raw files (PDFs, docs)
+      public_id: (req, file) => {
+        // Generate unique public ID
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        return `spm/documents/${file.fieldname}-${uniqueSuffix}`;
+      },
+      transformation: [
+        { flags: 'attachment' } // Make documents downloadable
+      ]
     }
   });
 
