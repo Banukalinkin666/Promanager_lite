@@ -396,6 +396,21 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/move-in', moveInRoutes);
 app.use('/api/reports', reportRoutes);
 
+// Fallback route for unmatched API requests
+app.use('/api/*', (req, res) => {
+  console.log(`❌ API route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ 
+    error: 'API endpoint not found', 
+    method: req.method, 
+    url: req.originalUrl,
+    availableEndpoints: [
+      '/api/health',
+      '/api/properties/test',
+      '/api/properties/debug-payments-simple'
+    ]
+  });
+});
+
 // Global error handler
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
@@ -411,6 +426,13 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('✅ Server started successfully - PDF generator fixed');
+  console.log('🔧 Debug endpoints available:');
+  console.log('  - /api/health');
+  console.log('  - /api/properties/test');
+  console.log('  - /api/properties/debug-payments-simple');
+}).on('error', (err) => {
+  console.error('❌ Server startup error:', err);
+  process.exit(1);
 });
 
 
