@@ -144,9 +144,62 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
     return schedule;
   };
 
-  const downloadDocument = (doc) => {
-    if (doc && doc.url) {
-      window.open(doc.url, '_blank');
+  const downloadDocument = async (doc) => {
+    if (!doc || !doc.url) {
+      console.error('No document URL provided');
+      return;
+    }
+    
+    try {
+      // Get the token from localStorage
+      const token = localStorage.getItem('token');
+      
+      // Check if it's a full URL or relative path
+      let documentUrl = doc.url;
+      
+      // If it's a Cloudinary URL (starts with http/https), use it directly
+      if (documentUrl.startsWith('http://') || documentUrl.startsWith('https://')) {
+        // For Cloudinary URLs, we can open directly
+        window.open(documentUrl, '_blank');
+      } else {
+        // For local paths, construct the full URL
+        const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+        const fullUrl = `${backendUrl.replace('/api', '')}${documentUrl}`;
+        
+        // Fetch with authentication
+        const response = await fetch(fullUrl, {
+          headers: token ? {
+            'Authorization': `Bearer ${token}`
+          } : {}
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Get the blob
+        const blob = await response.blob();
+        
+        // Create a URL for the blob
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        // Open in new window
+        const newWindow = window.open(blobUrl, '_blank');
+        
+        if (!newWindow) {
+          // If popup was blocked, trigger download
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = doc.filename || 'document.pdf';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(blobUrl);
+        }
+      }
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      alert('Failed to download document. Please try again later.');
     }
   };
 
