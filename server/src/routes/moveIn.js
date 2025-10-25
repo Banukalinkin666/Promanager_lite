@@ -550,7 +550,30 @@ router.put('/leases/:leaseId', authenticate, async (req, res) => {
     
     // Include documents if provided
     if (updates.documents) {
-      updateData.documents = updates.documents;
+      console.log('📄 Receiving documents:', JSON.stringify(updates.documents, null, 2));
+      
+      // Clean up documents - only include fields that exist in the schema
+      const cleanedDocuments = {};
+      
+      ['signedLease', 'idProof', 'depositReceipt', 'moveInInspection'].forEach(field => {
+        if (updates.documents[field]) {
+          // Only include if it's an object (not null, not empty)
+          if (typeof updates.documents[field] === 'object' && updates.documents[field] !== null) {
+            cleanedDocuments[field] = {
+              url: updates.documents[field].url || '',
+              filename: updates.documents[field].filename || '',
+              size: updates.documents[field].size || 0,
+              type: updates.documents[field].type || '',
+              uploadedAt: updates.documents[field].uploadedAt || new Date()
+            };
+          } else {
+            cleanedDocuments[field] = null;
+          }
+        }
+      });
+      
+      console.log('📄 Cleaned documents:', JSON.stringify(cleanedDocuments, null, 2));
+      updateData.documents = cleanedDocuments;
     }
     
     const updatedLease = await Lease.findByIdAndUpdate(
