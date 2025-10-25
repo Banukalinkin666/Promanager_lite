@@ -9,11 +9,7 @@ import {
   Calendar, Clock
 } from 'lucide-react';
 import api from '../lib/api.js';
-import EnhancedMoveInModal from '../components/EnhancedMoveInModal.jsx';
-import UnitDetailsModal from '../components/UnitDetailsModal.jsx';
-import LeaseDetailsViewModal from '../components/LeaseDetailsViewModal.jsx';
 import ConfirmationModal from '../components/ConfirmationModal.jsx';
-import EditLeaseModal from '../components/EditLeaseModal.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { useToast } from '../components/ToastContainer.jsx';
 
@@ -422,17 +418,9 @@ export default function PropertiesPage() {
   const [editingProperty, setEditingProperty] = useState(null);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState(null);
-  const [showMoveInModal, setShowMoveInModal] = useState(false);
-  const [selectedUnitForMoveIn, setSelectedUnitForMoveIn] = useState(null);
-  const [showUnitDetailsModal, setShowUnitDetailsModal] = useState(false);
-  const [selectedUnitForDetails, setSelectedUnitForDetails] = useState(null);
-  const [showRentScheduleModal, setShowRentScheduleModal] = useState(false);
-  const [selectedUnitForSchedule, setSelectedUnitForSchedule] = useState(null);
   const [showEndLeaseConfirmation, setShowEndLeaseConfirmation] = useState(false);
   const [unitToEndLease, setUnitToEndLease] = useState(null);
   const [endingLease, setEndingLease] = useState(false);
-  const [showEditLeaseModal, setShowEditLeaseModal] = useState(false);
-  const [selectedUnitForEditLease, setSelectedUnitForEditLease] = useState(null);
   const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', data: null });
@@ -671,21 +659,9 @@ export default function PropertiesPage() {
       return;
     }
     
-    setEditingUnit(unit);
-    setUnitForm({
-      unit: unit.name || '',
-      type: unit.type || 'APARTMENT',
-      sizeSqFt: unit.sizeSqFt || '',
-      floor: unit.floor || '',
-      bedrooms: unit.bedrooms || '',
-      bathrooms: unit.bathrooms || '',
-      parking: unit.parking || '',
-      rentAmount: unit.rentAmount || '',
-      electricityMeterNo: unit.electricityMeterNo || '',
-      waterMeterNo: unit.waterMeterNo || '',
-      amenities: unit.amenities || []
+    navigate(`/properties/${selectedProperty._id}/units/${unit._id}/edit`, {
+      state: { property: selectedProperty, unit: unit }
     });
-    setShowUnitForm(true);
   };
 
   const deleteUnit = async (unit) => {
@@ -785,18 +761,18 @@ export default function PropertiesPage() {
 
   const handleMoveInSuccess = () => {
     loadProperty(selectedProperty._id);
-    setShowMoveInModal(false);
-    setSelectedUnitForMoveIn(null);
   };
 
   const handleViewUnit = (unit) => {
-    setSelectedUnitForDetails(unit);
-    setShowUnitDetailsModal(true);
+    navigate(`/properties/${selectedProperty._id}/units/${unit._id}`, {
+      state: { property: selectedProperty, unit: unit }
+    });
   };
 
   const handleViewRentSchedule = (unit) => {
-    setSelectedUnitForSchedule(unit);
-    setShowRentScheduleModal(true);
+    navigate(`/properties/${selectedProperty._id}/units/${unit._id}/lease/details`, {
+      state: { property: selectedProperty, unit: unit }
+    });
   };
 
   // Check if any rent has been collected for a unit
@@ -817,8 +793,9 @@ export default function PropertiesPage() {
       toast.warning('Cannot edit lease after rent has been collected.');
       return;
     }
-    setSelectedUnitForEditLease(unit);
-    setShowEditLeaseModal(true);
+    navigate(`/properties/${selectedProperty._id}/units/${unit._id}/lease/edit`, {
+      state: { property: selectedProperty, unit: unit }
+    });
   };
 
   const handleEndLease = (unit) => {
@@ -1514,39 +1491,6 @@ export default function PropertiesPage() {
           </div>
         </div>
 
-        {/* Move-In Modal */}
-        <EnhancedMoveInModal
-          isOpen={showMoveInModal}
-          onClose={() => {
-            setShowMoveInModal(false);
-            setSelectedUnitForMoveIn(null);
-          }}
-          unit={selectedUnitForMoveIn}
-          property={selectedProperty}
-          onSuccess={handleMoveInSuccess}
-        />
-
-        {/* Unit Details Modal */}
-        <UnitDetailsModal
-          isOpen={showUnitDetailsModal}
-          onClose={() => {
-            setShowUnitDetailsModal(false);
-            setSelectedUnitForDetails(null);
-          }}
-          unit={selectedUnitForDetails}
-          property={selectedProperty}
-        />
-
-        {/* Lease Details View Modal */}
-        <LeaseDetailsViewModal
-          isOpen={showRentScheduleModal}
-          onClose={() => {
-            setShowRentScheduleModal(false);
-            setSelectedUnitForSchedule(null);
-          }}
-          unit={selectedUnitForSchedule}
-          property={selectedProperty}
-        />
 
         {/* End Lease Confirmation Modal */}
         <ConfirmationModal
@@ -1561,20 +1505,6 @@ export default function PropertiesPage() {
           loading={endingLease}
         />
 
-        {/* Edit Lease Modal */}
-        <EditLeaseModal
-          isOpen={showEditLeaseModal}
-          onClose={() => setShowEditLeaseModal(false)}
-          unit={selectedUnitForEditLease}
-          property={selectedProperty}
-          onSuccess={() => {
-            // Refresh property data
-            if (selectedProperty) {
-              loadProperty(selectedProperty._id);
-            }
-            load();
-          }}
-        />
 
         {/* Confirm Dialog (for unit delete, etc.) */}
         <ConfirmDialog
