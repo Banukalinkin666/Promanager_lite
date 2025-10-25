@@ -242,29 +242,32 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     const termsValueX = marginLeft + termsLabelWidth + 10;
     const termsLeftColWidth = 200;
     
+    // Define consistent positioning for all values
+    const valueStartX = marginLeft + 140; // Fixed position for all values
+    
     doc.fontSize(10).font('Helvetica-Bold')
        .fillColor('#000000')
        .text('Lease Start Date:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), termsValueX, currentY, { width: termsLeftColWidth });
+       .text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueStartX, currentY, { align: 'left' });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
        .text('Lease End Date:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), termsValueX, currentY, { width: termsLeftColWidth });
+       .text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueStartX, currentY, { align: 'left' });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
        .text('Monthly Rent:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(`$${leaseData.monthlyRent}`, termsValueX, currentY, { width: termsLeftColWidth });
+       .text(`$${leaseData.monthlyRent}`, valueStartX, currentY, { align: 'left' });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
        .text('Security Deposit:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(`$${leaseData.securityDeposit || 0}`, termsValueX, currentY, { width: termsLeftColWidth });
+       .text(`$${leaseData.securityDeposit || 0}`, valueStartX, currentY, { align: 'left' });
     
     doc.y = termsBoxY + termsBoxHeight + 10;
     doc.moveDown(1.5);
