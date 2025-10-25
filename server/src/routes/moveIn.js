@@ -331,6 +331,115 @@ router.get('/tenants', authenticate, authorize('OWNER', 'ADMIN'), async (req, re
   }
 });
 
+// Fetch and serve documents (for uploaded documents like signed lease, ID proof, etc.)
+router.post('/fetch-document', authenticate, async (req, res) => {
+  try {
+    const { url, filename } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ message: 'URL is required' });
+    }
+    
+    console.log('📥 Fetching document from:', url);
+    console.log('👤 User:', req.user?.id, 'Role:', req.user?.role);
+    
+    // Check if it's a Cloudinary URL
+    const isCloudinary = url.includes('res.cloudinary.com') || url.includes('cloudinary.com');
+    
+    let response;
+    
+    if (isCloudinary) {
+      console.log('☁️ Cloudinary URL detected - attempting direct access');
+      
+      try {
+        // Try direct access first
+        response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': '*/*'
+          },
+          redirect: 'follow'
+        });
+        
+        if (!response.ok) {
+          console.log('⚠️ Direct access failed:', response.status);
+          throw new Error(`Direct access failed: ${response.status}`);
+        }
+        
+        console.log('✅ Document fetched successfully');
+      } catch (error) {
+        console.error('❌ Error fetching document:', error.message);
+        
+        // Try to extract public ID and use Cloudinary SDK
+        try {
+          const urlParts = url.split('/');
+          const uploadIndex = urlParts.findIndex(part => part === 'upload');
+          
+          if (uploadIndex !== -1) {
+            const publicIdWithFormat = urlParts.slice(uploadIndex + 2).join('/');
+            const publicId = publicIdWithFormat.split('?')[0].replace(/\.\w+$/, '');
+            
+            console.log('📄 Extracted public ID:', publicId);
+            
+            // Generate a secure URL using Cloudinary SDK
+            const secureUrl = cloudinaryV1.url(publicId, {
+              resource_type: 'raw',
+              secure: true,
+              sign_url: true
+            });
+            
+            console.log('🔒 Using Cloudinary SDK signed URL');
+            
+            response = await fetch(secureUrl);
+            
+            if (!response.ok) {
+              throw new Error(`Cloudinary SDK fetch failed: ${response.status}`);
+            }
+          } else {
+            throw new Error('Invalid Cloudinary URL');
+          }
+        } catch (sdkError) {
+          console.error('❌ Cloudinary SDK fetch failed:', sdkError.message);
+          return res.status(500).json({ 
+            message: 'Failed to fetch document from Cloudinary',
+            error: sdkError.message 
+          });
+        }
+      }
+    } else {
+      // For local files, fetch directly
+      console.log('📁 Local file detected');
+      response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error('❌ Failed to fetch local document:', response.status);
+        return res.status(response.status).json({ 
+          message: `Failed to fetch document: ${response.statusText}` 
+        });
+      }
+    }
+    
+    // Get the content type
+    const contentType = response.headers.get('content-type') || 'application/pdf';
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename || url.split('/').pop()}"`);
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    
+    // Stream the response
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+    
+    console.log('✅ Document served successfully');
+    
+  } catch (error) {
+    console.error('❌ Error fetching document:', error);
+    res.status(500).json({ message: 'Error fetching document', error: error.message });
+  }
+});
+
 // Move tenant into unit
 router.post('/:propertyId/:unitId', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
   try {

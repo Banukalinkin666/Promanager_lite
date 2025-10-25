@@ -157,155 +157,24 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
       console.log('📄 Starting document download:', doc.url);
       console.log('📄 Document details:', doc);
       
-      let blob;
-      let fileName = doc.filename || 'document';
+      // Use the new backend fetch-document endpoint
+      const token = localStorage.getItem('token');
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
       
-      // For Cloudinary URLs, open directly in new tab (let browser handle it)
-      if (doc.url.startsWith('http://') || doc.url.startsWith('https://')) {
-        console.log('🔗 HTTP URL detected');
-        
-        // Check if it's actually Cloudinary
-        if (doc.url.includes('cloudinary.com')) {
-          // For Cloudinary URLs, try direct access first, then fallback to proxy
-          console.log('☁️ Cloudinary URL detected');
-          
-          try {
-            // First try direct access
-            console.log('🔄 Attempting direct access...');
-            const directResponse = await fetch(doc.url);
-            
-            if (directResponse.ok) {
-              blob = await directResponse.blob();
-              console.log('✅ Document fetched directly');
-            } else {
-              throw new Error(`Direct access failed: ${directResponse.status}`);
-            }
-          } catch (directError) {
-            console.log('⚠️ Direct access failed, trying backend proxy...', directError.message);
-            
-            try {
-              // Fallback to backend proxy
-              const token = localStorage.getItem('token');
-              const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
-              
-              const response = await fetch(`${backendUrl}/move-in/proxy-document`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ url: doc.url })
-              });
-              
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Proxy failed:', response.status, errorText);
-                throw new Error(`Failed to fetch document: ${errorText}`);
-              }
-              
-              blob = await response.blob();
-              console.log('✅ Document fetched via proxy');
-            } catch (proxyError) {
-              console.log('⚠️ Proxy also failed, trying direct URL opening...', proxyError.message);
-              
-              // Final fallback: open URL directly in new tab
-              console.log('🔄 Opening URL directly in new tab...');
-              const newWindow = window.open(doc.url, '_blank');
-              
-              if (!newWindow) {
-                console.log('⚠️ Popup blocked, showing user message');
-                toast.error('Popup blocked. Please allow popups for this site and try again.');
-                return;
-              } else {
-                console.log('🪟 Opened URL directly in new window');
-                toast.success('Document opened in new tab');
-                return;
-              }
-            }
-          }
-          
-          // Handle the blob (open in new window or download)
-          if (blob.size === 0) {
-            throw new Error('Document is empty');
-          }
-          
-          // Create a URL for the blob
-          const blobUrl = window.URL.createObjectURL(blob);
-          console.log('🔗 Blob URL created:', blobUrl);
-          
-          // Try to open in new window first
-          const newWindow = window.open(blobUrl, '_blank');
-          
-          if (!newWindow) {
-            // If popup was blocked, trigger download
-            console.log('⚠️ Popup blocked, triggering download instead');
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            console.log('📥 Download triggered');
-          } else {
-            console.log('🪟 Opened in new window');
-          }
-          
-          // Clean up the blob URL after a delay
-          setTimeout(() => {
-            window.URL.revokeObjectURL(blobUrl);
-            console.log('🧹 Blob URL cleaned up');
-          }, 1000);
-          
-          toast.success('Document opened successfully');
-          return;
-        } else {
-          // For other HTTP URLs, try to fetch
-          console.log('🔄 Attempting to fetch document...');
-          const directResponse = await fetch(doc.url);
-          
-          if (directResponse.ok) {
-            blob = await directResponse.blob();
-            console.log('✅ Document fetched directly');
-          } else {
-            throw new Error(`Direct access failed: ${directResponse.status}`);
-          }
-        }
-      } else {
-        // For local paths, construct the full URL
-        console.log('📁 Local path detected');
-        const token = localStorage.getItem('token');
-        const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
-        const fullUrl = `${backendUrl.replace('/api', '')}${doc.url}`;
-        
-        console.log('📁 Full URL:', fullUrl);
-        
-        const response = await fetch(fullUrl, {
-          headers: token ? {
-            'Authorization': `Bearer ${token}`
-          } : {}
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ Local fetch failed:', response.status, errorText);
-          throw new Error(`Local fetch failed: ${response.status} - ${errorText}`);
-        }
-        
-        blob = await response.blob();
-        console.log('✅ Local document fetched');
-      }
+      console.log('🔄 Fetching document through backend...');
       
-      console.log('📦 Blob size:', blob.size, 'bytes');
+      const response = await api.post('/move-in/fetch-document', {
+        url: doc.url,
+        filename: doc.filename || 'document.pdf'
+      }, {
+        responseType: 'blob' // Important: get blob response
+      });
       
-      if (blob.size === 0) {
-        throw new Error('Document is empty');
-      }
+      // Create a blob URL from the response
+      const blobUrl = window.URL.createObjectURL(response.data);
+      console.log('✅ Document fetched, blob URL created:', blobUrl);
       
-      // Create a URL for the blob
-      const blobUrl = window.URL.createObjectURL(blob);
-      console.log('🔗 Blob URL created:', blobUrl);
-      
-      // Try to open in new window first
+      // Open in new window
       const newWindow = window.open(blobUrl, '_blank');
       
       if (!newWindow) {
@@ -313,7 +182,7 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
         console.log('⚠️ Popup blocked, triggering download instead');
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.download = fileName;
+        link.download = doc.filename || 'document.pdf';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -333,10 +202,11 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
     } catch (error) {
       console.error('❌ Error downloading document:', error);
       console.error('Error details:', error.message);
-      console.error('Error stack:', error.stack);
       toast.error(`Failed to download document: ${error.message}`);
     }
   };
+  
+
 
   if (!isOpen) return null;
 
