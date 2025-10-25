@@ -163,6 +163,73 @@ router.post('/test-download', (req, res) => {
   }
 });
 
+// Get signed Cloudinary URL for direct download (alternative to proxying)
+router.post('/get-signed-url', authenticate, async (req, res) => {
+  try {
+    const { url, filename } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ message: 'URL is required' });
+    }
+    
+    console.log('🔗 Generating signed URL for:', url);
+    
+    // Check if it's a Cloudinary URL
+    if (url.includes('res.cloudinary.com') || url.includes('cloudinary.com')) {
+      try {
+        // Extract public ID from the URL
+        const urlParts = url.split('/');
+        const uploadIndex = urlParts.findIndex(part => part === 'upload');
+        
+        if (uploadIndex === -1) {
+          throw new Error('Invalid Cloudinary URL');
+        }
+        
+        const publicIdWithFormat = urlParts.slice(uploadIndex + 2).join('/');
+        const publicId = publicIdWithFormat.replace(/\.\w+$/, ''); // Remove file extension
+        
+        console.log('📄 Extracted public ID:', publicId);
+        
+        // Generate a signed URL using Cloudinary SDK
+        const signedUrl = cloudinaryV1.url(publicId, {
+          resource_type: 'raw',
+          secure: true,
+          sign_url: true,
+          transformation: [{ flags: 'attachment' }]
+        });
+        
+        console.log('🔒 Generated signed URL:', signedUrl);
+        
+        res.json({
+          signedUrl: signedUrl,
+          originalUrl: url,
+          filename: filename || 'document.pdf',
+          expires: new Date(Date.now() + 3600000).toISOString() // 1 hour from now
+        });
+        
+      } catch (cloudinaryError) {
+        console.error('❌ Cloudinary signed URL error:', cloudinaryError);
+        res.status(500).json({ 
+          message: 'Failed to generate signed URL', 
+          error: cloudinaryError.message 
+        });
+      }
+    } else {
+      // For non-Cloudinary URLs, return the original URL
+      res.json({
+        signedUrl: url,
+        originalUrl: url,
+        filename: filename || 'document.pdf',
+        expires: null
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error generating signed URL:', error);
+    res.status(500).json({ message: 'Error generating signed URL', error: error.message });
+  }
+});
+
 // Generate rent payment records for a lease
 const generateRentPayments = async (lease, property, unit) => {
   const payments = [];
@@ -498,7 +565,7 @@ router.post('/fetch-document', authenticate, async (req, res) => {
     console.log('📥 Fetching document from:', url);
     console.log('📄 Filename:', filename);
     
-    // Simple and robust fetch approach
+    // Use proper streaming with fetch
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -525,21 +592,53 @@ router.post('/fetch-document', authenticate, async (req, res) => {
     
     // Get the content type from response
     const contentType = response.headers.get('content-type') || 'application/pdf';
+    const contentLength = response.headers.get('content-length');
     console.log('📄 Content type:', contentType);
+    console.log('📏 Content length:', contentLength);
     
     // Set appropriate headers
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${filename || url.split('/').pop()}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename || 'document.pdf'}"`);
     res.setHeader('Cache-Control', 'public, max-age=31536000');
+    
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
     
     console.log('📤 Streaming response...');
     
-    // Stream the response directly
-    const buffer = await response.arrayBuffer();
-    console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
-    
-    // Send the buffer directly
-    res.send(Buffer.from(buffer));
+    // Stream the response body directly to the client
+    if (response.body) {
+      // Use the readable stream from the response
+      const reader = response.body.getReader();
+      
+      const pump = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              console.log('✅ Document stream completed');
+              res.end();
+              break;
+            }
+            res.write(value);
+          }
+        } catch (error) {
+          console.error('❌ Stream error:', error);
+          if (!res.headersSent) {
+            res.status(500).json({ message: 'Stream error', error: error.message });
+          }
+        }
+      };
+      
+      pump();
+    } else {
+      // Fallback to buffering if streaming is not available
+      console.log('⚠️ Streaming not available, using buffer fallback');
+      const buffer = await response.arrayBuffer();
+      console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
+      res.send(Buffer.from(buffer));
+    }
     
     console.log('✅ Document served successfully');
     
@@ -547,7 +646,10 @@ router.post('/fetch-document', authenticate, async (req, res) => {
     console.error('❌ Error in fetch-document:', error);
     console.error('Error details:', error.message);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ message: 'Error fetching document', error: error.message });
+    
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Error fetching document', error: error.message });
+    }
   }
 });
 
