@@ -32,30 +32,11 @@ export default function LoginPage() {
         {/* Logo Section */}
         <div className="text-center mb-4">
           <div className="inline-flex items-center justify-center w-32 h-32 bg-black rounded-full border border-white shadow-2xl mb-4">
-            <div className="w-28 h-28 bg-black rounded-full flex flex-col items-center justify-center p-4">
-              {/* House Icon */}
-              <div className="w-12 h-12 relative mb-2">
-                {/* House roof (triangle) - SVG approach */}
-                <svg className="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-8" viewBox="0 0 24 16">
-                  <polygon points="12,0 0,12 24,12" fill="white" />
-                </svg>
-                {/* Chimney */}
-                <div className="absolute top-1 right-2 w-1 h-3 bg-white"></div>
-                {/* House body */}
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-10 h-8 border-2 border-white rounded-sm">
-                  {/* Windows */}
-                  <div className="absolute top-2 left-2 w-2 h-2 bg-white"></div>
-                  <div className="absolute top-2 right-2 w-2 h-2 bg-white"></div>
-                </div>
-              </div>
-              
-              {/* Text */}
-              <div className="text-white text-center">
-                <div className="text-sm font-bold leading-tight">SMART</div>
-                <div className="text-xs font-bold leading-tight">PROPERTY</div>
-                <div className="text-xs font-bold leading-tight">MANAGER</div>
-              </div>
-            </div>
+            <img 
+              src="/spm-logo-white.png" 
+              alt="Smart Property Manager Logo" 
+              className="w-24 h-24 object-contain"
+            />
           </div>
         </div>
 
