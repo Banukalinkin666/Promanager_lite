@@ -58,8 +58,8 @@ export const streamRentAgreementPDF = (leaseData, res) => {
          width: contentWidth,
          align: 'center' 
        });
-    
-    doc.moveDown(0.3);
+  
+  doc.moveDown(0.3);
     doc.fontSize(10).font('Helvetica')
        .fillColor('#666666')
        .text(`Agreement Number: ${leaseData.agreementNumber}`, { 
@@ -190,8 +190,8 @@ export const streamRentAgreementPDF = (leaseData, res) => {
        .text('Size:', rightColX + 10, currentY, { width: rightLabelWidth });
     doc.font('Helvetica')
        .text(`${leaseData.unit.sizeSqFt} sq ft`, rightValueX, currentY, { width: rightColWidth });
-    
-    if (leaseData.unit.bedrooms > 0) {
+  
+  if (leaseData.unit.bedrooms > 0) {
       currentY += 20;
       doc.font('Helvetica-Bold')
          .text('Bedrooms:', rightColX + 10, currentY, { width: rightLabelWidth });
@@ -199,7 +199,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
          .text(`${leaseData.unit.bedrooms}`, rightValueX, currentY, { width: rightColWidth });
     }
     
-    if (leaseData.unit.bathrooms > 0) {
+  if (leaseData.unit.bathrooms > 0) {
       currentY += 20;
       doc.font('Helvetica-Bold')
          .text('Bathrooms:', rightColX + 10, currentY, { width: rightLabelWidth });
@@ -207,7 +207,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
          .text(`${leaseData.unit.bathrooms}`, rightValueX, currentY, { width: rightColWidth });
     }
     
-    if (leaseData.unit.parking > 0) {
+  if (leaseData.unit.parking > 0) {
       currentY += 20;
       doc.font('Helvetica-Bold')
          .text('Parking:', rightColX + 10, currentY, { width: rightLabelWidth });
@@ -244,31 +244,31 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     
     // Define consistent positioning for all values - use fixed column approach
     const labelX = marginLeft + 10;
-    const valueX = marginLeft + 140; // Fixed position for all values
+    const termsValueX = marginLeft + 140; // Fixed position for all values
     
     doc.fontSize(10).font('Helvetica-Bold')
        .fillColor('#000000')
        .text('Lease Start Date:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueX, currentY, { width: 200 });
+       .text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), termsValueX, currentY, { width: 200 });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
        .text('Lease End Date:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueX, currentY, { width: 200 });
+       .text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), termsValueX, currentY, { width: 200 });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
        .text('Monthly Rent:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(`$${leaseData.monthlyRent}`, valueX, currentY, { width: 200 });
+       .text(`$${leaseData.monthlyRent}`, termsValueX, currentY, { width: 200 });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
        .text('Security Deposit:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(`$${leaseData.securityDeposit || 0}`, valueX, currentY, { width: 200 });
+       .text(`$${leaseData.securityDeposit || 0}`, termsValueX, currentY, { width: 200 });
     
     doc.y = termsBoxY + termsBoxHeight + 10;
     doc.moveDown(1.5);
@@ -339,7 +339,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
            width: contentWidth,
            continued: false 
          });
-      doc.moveDown(0.3);
+  doc.moveDown(0.3);
       doc.fontSize(10).font('Helvetica')
          .text(term.content, marginLeft + 10, doc.y, { 
            width: contentWidth - 10,
@@ -352,18 +352,18 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     // SIGNATURES SECTION
     // =============================================
     checkPageBreak(250);
-    
-    doc.moveDown(1);
-    
+  
+  doc.moveDown(1);
+  
     doc.fontSize(14).font('Helvetica-Bold')
        .fillColor('#1a365d')
        .text('SIGNATURES', marginLeft, doc.y, { 
          underline: true,
          align: 'left'
        });
-    
-    doc.moveDown(0.5);
-    
+  
+  doc.moveDown(0.5);
+  
     doc.fontSize(10).font('Helvetica')
        .fillColor('#666666')
        .text('By signing below, both parties acknowledge that they have read, understood, and agree to be bound by the terms and conditions of this lease agreement.', marginLeft, doc.y, {
@@ -407,7 +407,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     // FOOTER
     // =============================================
     doc.y = Math.max(doc.y, sigY + 100);
-    doc.moveDown(2);
+  doc.moveDown(2);
     
     const footerY = doc.page.height - 60;
     doc.strokeColor('#dee2e6')
@@ -418,7 +418,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     
     doc.fontSize(9).font('Helvetica')
        .fillColor('#666666')
-       .text('This agreement was generated automatically by Smart Property Manager', 
+     .text('This agreement was generated automatically by Smart Property Manager', 
              marginLeft, footerY + 10, 
              { width: contentWidth, align: 'center' });
     
@@ -428,8 +428,8 @@ export const streamRentAgreementPDF = (leaseData, res) => {
              { width: contentWidth, align: 'center' });
     
     // Finalize
-    doc.end();
-    
+  doc.end();
+  
     console.log('✅ PDF streamed successfully for agreement:', leaseData.agreementNumber);
     
   } catch (error) {
@@ -458,7 +458,7 @@ export const generateRentAgreementPDF = (leaseData) => {
       
       const chunks = [];
       doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => {
+    doc.on('end', () => {
         const pdfBuffer = Buffer.concat(chunks);
         console.log('✅ PDF buffer generated, size:', pdfBuffer.length, 'bytes');
         resolve(pdfBuffer);
