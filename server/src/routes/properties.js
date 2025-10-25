@@ -336,6 +336,11 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
         const belongsToProperty = paymentPropertyId === currentPropertyId;
         const belongsToUnit = property.units.some(unit => unit._id.toString() === paymentUnitId);
         
+        // Debug logging
+        if (paymentPropertyId || paymentUnitId) {
+          console.log(`   💳 Checking payment: propertyId=${paymentPropertyId}, unitId=${paymentUnitId}, currentPropertyId=${currentPropertyId}, belongsToProperty=${belongsToProperty}, belongsToUnit=${belongsToUnit}`);
+        }
+        
         return belongsToProperty || belongsToUnit;
       });
       

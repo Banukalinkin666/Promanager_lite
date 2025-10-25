@@ -368,6 +368,7 @@ const generateRentPayments = async (lease, property, unit) => {
       }
     };
     
+    console.log(`   💳 Payment ${monthCount}: amount=${paymentAmount}, status=${payment.status}, propertyId=${lease.property}, unitId=${lease.unit}, originalAmount=${monthlyRent}`);
     payments.push(payment);
     
     // Move to next month
