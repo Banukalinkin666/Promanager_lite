@@ -128,9 +128,21 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
     
     // Get all payments for these properties
     const propertyIds = properties.map(p => p._id);
+    console.log('🔍 Looking for payments with propertyIds:', propertyIds);
+    
     const payments = await Payment.find({
       'metadata.propertyId': { $in: propertyIds }
     });
+    
+    console.log('📊 Found payments:', payments.length);
+    console.log('📊 Payment details:', payments.map(p => ({
+      id: p._id,
+      amount: p.amount,
+      status: p.status,
+      propertyId: p.metadata?.propertyId,
+      unitId: p.metadata?.unitId,
+      originalAmount: p.metadata?.originalAmount
+    })));
     
     // Calculate tenant statistics
     const activeTenants = new Set();
@@ -155,6 +167,9 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
         payment.metadata?.propertyId?.toString() === property._id.toString()
       );
       
+      console.log(`🏠 Property ${property.title} (${property._id}):`);
+      console.log(`   📊 Found ${propertyPayments.length} payments for this property`);
+      
       // Calculate rent status using the new logic
       const today = new Date();
       const rentStatusBreakdown = {
@@ -170,17 +185,24 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
         // Get the original amount (before advance payment deduction)
         const originalAmount = payment.metadata?.originalAmount || payment.amount;
         
+        console.log(`   💰 Payment ${payment._id}: status=${paymentStatus}, amount=${payment.amount}, originalAmount=${originalAmount}, dueDate=${rentDueDate.toISOString()}`);
+        
         if (paymentStatus === 'SUCCEEDED') {
           // For succeeded payments, use the original amount to reflect the full rent value
           rentStatusBreakdown.paid += originalAmount;
+          console.log(`     ✅ Added to paid: ${originalAmount}`);
         } else {
           if (today > rentDueDate) {
             rentStatusBreakdown.due += originalAmount;
+            console.log(`     ⚠️ Added to due: ${originalAmount}`);
           } else {
             rentStatusBreakdown.pending += originalAmount;
+            console.log(`     ⏳ Added to pending: ${originalAmount}`);
           }
         }
       });
+      
+      console.log(`   📈 Final breakdown for ${property.title}:`, rentStatusBreakdown);
       
       const propertyPendingRent = rentStatusBreakdown.pending;
       const propertyDueRent = rentStatusBreakdown.due;
