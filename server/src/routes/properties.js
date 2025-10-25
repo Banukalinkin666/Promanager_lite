@@ -167,13 +167,17 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
         const paymentStatus = payment.status;
         const rentDueDate = new Date(payment.metadata?.dueDate || payment.createdAt);
         
+        // Get the original amount (before advance payment deduction)
+        const originalAmount = payment.metadata?.originalAmount || payment.amount;
+        
         if (paymentStatus === 'SUCCEEDED') {
-          rentStatusBreakdown.paid += payment.amount;
+          // For succeeded payments, use the original amount to reflect the full rent value
+          rentStatusBreakdown.paid += originalAmount;
         } else {
           if (today > rentDueDate) {
-            rentStatusBreakdown.due += payment.amount;
+            rentStatusBreakdown.due += originalAmount;
           } else {
-            rentStatusBreakdown.pending += payment.amount;
+            rentStatusBreakdown.pending += originalAmount;
           }
         }
       });
