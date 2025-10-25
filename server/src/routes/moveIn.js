@@ -565,58 +565,124 @@ router.post('/fetch-document', authenticate, async (req, res) => {
     console.log('📥 Fetching document from:', url);
     console.log('📄 Filename:', filename);
     
-    // Try axios first, fallback to fetch if not available
+    // Check if it's a Cloudinary URL
+    const isCloudinary = url.includes('res.cloudinary.com') || url.includes('cloudinary.com');
+    
     let response;
     let contentType;
     let contentLength;
     
-    try {
-      // Import axios dynamically
-      const axios = (await import('axios')).default;
+    if (isCloudinary) {
+      console.log('☁️ Cloudinary URL detected');
       
-      // Use axios with proper streaming configuration
-      response = await axios.get(url, {
-        responseType: 'stream',
-        timeout: 30000, // 30 second timeout
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': '*/*'
-        },
-        validateStatus: function (status) {
-          return status >= 200 && status < 300; // Only resolve for 2xx status codes
+      // For Cloudinary URLs, try multiple approaches
+      let success = false;
+      let lastError = null;
+      
+      // Method 1: Try direct access
+      try {
+        console.log('🔄 Method 1: Direct Cloudinary access...');
+        response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': '*/*'
+          },
+          redirect: 'follow'
+        });
+        
+        if (response.ok) {
+          console.log('✅ Method 1: Direct access successful');
+          success = true;
+        } else {
+          throw new Error(`Direct access failed: ${response.status}`);
         }
-      });
+      } catch (error) {
+        console.log('⚠️ Method 1 failed:', error.message);
+        lastError = error;
+      }
       
-      console.log('📊 Axios response status:', response.status);
-      console.log('📊 Axios response headers:', response.headers);
-      
-      contentType = response.headers['content-type'] || 'application/pdf';
-      contentLength = response.headers['content-length'];
-      
-      console.log('📤 Streaming with axios...');
-      
-      // Stream the response data directly to the client
-      response.data.pipe(res);
-      
-      // Handle stream events
-      response.data.on('end', () => {
-        console.log('✅ Document stream completed');
-      });
-      
-      response.data.on('error', (error) => {
-        console.error('❌ Stream error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({ message: 'Stream error', error: error.message });
+      // Method 2: Try with fl_attachment parameter
+      if (!success) {
+        try {
+          console.log('🔄 Method 2: With fl_attachment parameter...');
+          const downloadUrl = url.includes('?') ? `${url}&fl_attachment` : `${url}?fl_attachment`;
+          
+          response = await fetch(downloadUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': '*/*'
+            },
+            redirect: 'follow'
+          });
+          
+          if (response.ok) {
+            console.log('✅ Method 2: fl_attachment parameter successful');
+            success = true;
+          } else {
+            throw new Error(`fl_attachment failed: ${response.status}`);
+          }
+        } catch (error) {
+          console.log('⚠️ Method 2 failed:', error.message);
+          lastError = error;
         }
-      });
+      }
       
-    } catch (axiosError) {
-      console.log('⚠️ Axios failed, trying fetch fallback:', axiosError.message);
+      // Method 3: Try with Cloudinary SDK (signed URL)
+      if (!success) {
+        try {
+          console.log('🔄 Method 3: Cloudinary SDK signed URL...');
+          
+          // Extract public ID from the URL
+          const urlParts = url.split('/');
+          const uploadIndex = urlParts.findIndex(part => part === 'upload');
+          
+          if (uploadIndex === -1) {
+            throw new Error('Invalid Cloudinary URL');
+          }
+          
+          const publicIdWithFormat = urlParts.slice(uploadIndex + 2).join('/');
+          const publicId = publicIdWithFormat.replace(/\.\w+$/, ''); // Remove file extension
+          
+          console.log('📄 Extracted public ID:', publicId);
+          
+          // Generate a signed URL using Cloudinary SDK
+          const signedUrl = cloudinaryV1.url(publicId, {
+            resource_type: 'raw',
+            secure: true,
+            sign_url: true,
+            transformation: [{ flags: 'attachment' }]
+          });
+          
+          console.log('🔒 Generated signed URL:', signedUrl);
+          
+          response = await fetch(signedUrl, {
+            method: 'GET',
+            redirect: 'follow'
+          });
+          
+          if (response.ok) {
+            console.log('✅ Method 3: Signed URL successful');
+            success = true;
+          } else {
+            throw new Error(`Signed URL failed: ${response.status}`);
+          }
+        } catch (error) {
+          console.log('⚠️ Method 3 failed:', error.message);
+          lastError = error;
+        }
+      }
       
-      // Fallback to fetch API
-      const fetchResponse = await fetch(url, {
+      // If all methods failed, throw the last error
+      if (!success) {
+        console.error('❌ All Cloudinary fetch methods failed');
+        throw new Error(`Failed to fetch Cloudinary document: ${lastError?.message || 'All methods failed'}`);
+      }
+    } else {
+      // For non-Cloudinary URLs, fetch directly
+      console.log('📁 Non-Cloudinary URL detected');
+      response = await fetch(url, {
         method: 'GET',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -625,50 +691,15 @@ router.post('/fetch-document', authenticate, async (req, res) => {
         redirect: 'follow'
       });
       
-      console.log('📊 Fetch response status:', fetchResponse.status);
-      console.log('📊 Fetch response headers:', Object.fromEntries(fetchResponse.headers.entries()));
-      
-      if (!fetchResponse.ok) {
-        throw new Error(`Fetch failed with status: ${fetchResponse.status}`);
-      }
-      
-      contentType = fetchResponse.headers.get('content-type') || 'application/pdf';
-      contentLength = fetchResponse.headers.get('content-length');
-      
-      console.log('📤 Streaming with fetch...');
-      
-      // Stream using fetch
-      if (fetchResponse.body) {
-        const reader = fetchResponse.body.getReader();
-        
-        const pump = async () => {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                console.log('✅ Document stream completed');
-                res.end();
-                break;
-              }
-              res.write(value);
-            }
-          } catch (error) {
-            console.error('❌ Stream error:', error);
-            if (!res.headersSent) {
-              res.status(500).json({ message: 'Stream error', error: error.message });
-            }
-          }
-        };
-        
-        pump();
-      } else {
-        // Fallback to buffering
-        console.log('⚠️ Streaming not available, using buffer fallback');
-        const buffer = await fetchResponse.arrayBuffer();
-        console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
-        res.send(Buffer.from(buffer));
+      if (!response.ok) {
+        console.error('❌ Failed to fetch document:', response.status, response.statusText);
+        throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
       }
     }
+    
+    // Get the content type from the response
+    contentType = response.headers.get('content-type') || 'application/pdf';
+    contentLength = response.headers.get('content-length');
     
     console.log('📄 Content type:', contentType);
     console.log('📏 Content length:', contentLength);
@@ -682,6 +713,38 @@ router.post('/fetch-document', authenticate, async (req, res) => {
       res.setHeader('Content-Length', contentLength);
     }
     
+    // Stream the response
+    if (response.body) {
+      const reader = response.body.getReader();
+      
+      const pump = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              console.log('✅ Document stream completed');
+              res.end();
+              break;
+            }
+            res.write(value);
+          }
+        } catch (error) {
+          console.error('❌ Stream error:', error);
+          if (!res.headersSent) {
+            res.status(500).json({ message: 'Stream error', error: error.message });
+          }
+        }
+      };
+      
+      pump();
+    } else {
+      // Fallback to buffering
+      console.log('⚠️ Streaming not available, using buffer fallback');
+      const buffer = await response.arrayBuffer();
+      console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
+      res.send(Buffer.from(buffer));
+    }
+    
     console.log('✅ Document served successfully');
     
   } catch (error) {
@@ -690,29 +753,11 @@ router.post('/fetch-document', authenticate, async (req, res) => {
     console.error('Error stack:', error.stack);
     
     if (!res.headersSent) {
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('❌ Response error:', error.response.status, error.response.data);
-        res.status(500).json({ 
-          message: `Failed to fetch document: HTTP ${error.response.status}`,
-          error: error.response.data || error.message 
-        });
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error('❌ Request error:', error.request);
-        res.status(500).json({ 
-          message: 'No response received from document server',
-          error: error.message 
-        });
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('❌ Setup error:', error.message);
-        res.status(500).json({ 
-          message: 'Error setting up document request',
-          error: error.message 
-        });
-      }
+      res.status(500).json({ 
+        message: 'Failed to fetch document',
+        error: error.message,
+        details: 'The document may have been moved, deleted, or is not accessible. Please contact support if this issue persists.'
+      });
     }
   }
 });

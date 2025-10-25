@@ -157,112 +157,80 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
       console.log('📄 Starting document download:', doc.url);
       console.log('📄 Document details:', doc);
       
-      // Try multiple approaches for better reliability
-      let success = false;
-      let lastError = null;
+      // Show loading state
+      toast.info('Downloading document...');
       
-      // Method 1: Try direct URL access first (for publicly accessible files)
-      if (doc.url.startsWith('http')) {
-        try {
-          console.log('🔄 Method 1: Direct URL access...');
-          const directResponse = await fetch(doc.url, {
-            method: 'GET',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          });
-          
-          if (directResponse.ok) {
-            const blob = await directResponse.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            
-            const newWindow = window.open(blobUrl, '_blank');
-            if (!newWindow) {
-              const link = document.createElement('a');
-              link.href = blobUrl;
-              link.download = doc.filename || 'document.pdf';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            }
-            
-            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
-            console.log('✅ Method 1: Direct access successful');
-            success = true;
-          } else {
-            throw new Error(`Direct access failed: ${directResponse.status}`);
-          }
-        } catch (error) {
-          console.log('⚠️ Method 1 failed:', error.message);
-          lastError = error;
+      // Try backend proxy first (most reliable method)
+      try {
+        console.log('🔄 Using backend proxy...');
+        const response = await api.post('/move-in/fetch-document', {
+          url: doc.url,
+          filename: doc.filename || 'document.pdf'
+        }, {
+          responseType: 'blob',
+          timeout: 30000 // 30 second timeout
+        });
+        
+        const blobUrl = window.URL.createObjectURL(response.data);
+        const newWindow = window.open(blobUrl, '_blank');
+        
+        if (!newWindow) {
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = doc.filename || 'document.pdf';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }
-      }
-      
-      // Method 2: Try backend proxy with streaming
-      if (!success) {
-        try {
-          console.log('🔄 Method 2: Backend proxy with streaming...');
-          const response = await api.post('/move-in/fetch-document', {
-            url: doc.url,
-            filename: doc.filename || 'document.pdf'
-          }, {
-            responseType: 'blob',
-            timeout: 30000 // 30 second timeout
-          });
-          
-          const blobUrl = window.URL.createObjectURL(response.data);
-          const newWindow = window.open(blobUrl, '_blank');
-          
-          if (!newWindow) {
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = doc.filename || 'document.pdf';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-          
-          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
-          console.log('✅ Method 2: Backend proxy successful');
-          success = true;
-        } catch (error) {
-          console.log('⚠️ Method 2 failed:', error.message);
-          lastError = error;
-        }
-      }
-      
-      // Method 3: Try signed URL approach (for Cloudinary)
-      if (!success && doc.url.includes('cloudinary.com')) {
-        try {
-          console.log('🔄 Method 3: Signed URL approach...');
-          const signedResponse = await api.post('/move-in/get-signed-url', {
-            url: doc.url,
-            filename: doc.filename || 'document.pdf'
-          });
-          
-          if (signedResponse.data.signedUrl) {
-            const newWindow = window.open(signedResponse.data.signedUrl, '_blank');
-            if (!newWindow) {
-              const link = document.createElement('a');
-              link.href = signedResponse.data.signedUrl;
-              link.download = doc.filename || 'document.pdf';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            }
-            console.log('✅ Method 3: Signed URL successful');
-            success = true;
-          }
-        } catch (error) {
-          console.log('⚠️ Method 3 failed:', error.message);
-          lastError = error;
-        }
-      }
-      
-      if (success) {
+        
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+        console.log('✅ Backend proxy successful');
         toast.success('Document opened successfully');
-      } else {
-        throw lastError || new Error('All download methods failed');
+        return;
+        
+      } catch (proxyError) {
+        console.log('⚠️ Backend proxy failed:', proxyError.message);
+        
+        // If backend proxy fails, try direct access as fallback
+        if (doc.url.startsWith('http')) {
+          try {
+            console.log('🔄 Fallback: Direct URL access...');
+            const directResponse = await fetch(doc.url, {
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            
+            if (directResponse.ok) {
+              const blob = await directResponse.blob();
+              const blobUrl = window.URL.createObjectURL(blob);
+              
+              const newWindow = window.open(blobUrl, '_blank');
+              if (!newWindow) {
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = doc.filename || 'document.pdf';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+              
+              setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+              console.log('✅ Direct access successful');
+              toast.success('Document opened successfully');
+              return;
+            } else {
+              throw new Error(`Direct access failed: ${directResponse.status}`);
+            }
+          } catch (directError) {
+            console.log('⚠️ Direct access failed:', directError.message);
+          }
+        }
+        
+        // If all methods fail, show a helpful error message
+        console.error('❌ All download methods failed');
+        toast.error('Document is not accessible. The file may have been moved or deleted. Please contact support.');
       }
       
     } catch (error) {
