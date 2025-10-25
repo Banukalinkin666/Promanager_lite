@@ -99,6 +99,70 @@ router.post('/test-fetch', (req, res) => {
   }
 });
 
+// Test document download endpoint - NO authentication required for testing
+router.post('/test-download', (req, res) => {
+  console.log('🧪 Test download endpoint hit!');
+  console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const { url, filename } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ message: 'URL is required' });
+    }
+    
+    console.log('📥 Testing download from:', url);
+    console.log('📄 Filename:', filename);
+    
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': '*/*'
+      },
+      redirect: 'follow'
+    })
+    .then(response => {
+      console.log('📊 Test response status:', response.status);
+      console.log('📊 Test response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        return res.status(500).json({ 
+          message: `Test download failed: HTTP ${response.status}`,
+          status: response.status
+        });
+      }
+      
+      return response.arrayBuffer();
+    })
+    .then(buffer => {
+      console.log('📦 Test buffer size:', buffer.byteLength, 'bytes');
+      
+      // Set headers like the real endpoint
+      const contentType = 'application/pdf';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${filename || 'test.pdf'}"`);
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      
+      // Send the buffer
+      res.send(Buffer.from(buffer));
+      
+      console.log('✅ Test download completed');
+    })
+    .catch(error => {
+      console.error('❌ Test download error:', error);
+      res.status(500).json({ 
+        message: 'Test download failed',
+        error: error.message 
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ Test download endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Generate rent payment records for a lease
 const generateRentPayments = async (lease, property, unit) => {
   const payments = [];
@@ -434,100 +498,53 @@ router.post('/fetch-document', authenticate, async (req, res) => {
     console.log('📥 Fetching document from:', url);
     console.log('📄 Filename:', filename);
     
-    let response;
+    // Simple and robust fetch approach
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': '*/*'
+      },
+      redirect: 'follow'
+    });
     
-    try {
-      // Simple fetch - handle both Cloudinary and local URLs
-      console.log('🔄 Attempting to fetch document...');
-      
-      response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': '*/*'
-        },
-        redirect: 'follow'
-      });
-      
-      console.log('📊 Response status:', response.status);
-      console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        console.error('❌ Fetch failed with status:', response.status);
-        
-        // Check if it's a Cloudinary ACL error
-        if (response.headers.get('x-cld-error') && response.headers.get('x-cld-error').includes('deny or ACL failure')) {
-          console.log('⚠️ Cloudinary ACL error detected, trying without attachment flag...');
-          
-          // Try to fetch without the attachment flag by removing transformation parameters
-          const cleanUrl = url.split('?')[0]; // Remove any query parameters
-          const retryUrl = cleanUrl.split('upload/')[0] + 'upload/raw/' + cleanUrl.split('upload/')[1];
-          
-          console.log('🔄 Retrying with clean URL:', retryUrl);
-          
-          response = await fetch(retryUrl, {
-            method: 'GET',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Accept': '*/*'
-            },
-            redirect: 'follow'
-          });
-          
-          console.log('📊 Retry response status:', response.status);
-          
-          if (!response.ok) {
-            console.error('❌ Retry also failed with status:', response.status);
-            const errorText = await response.text();
-            console.error('❌ Error response body:', errorText);
-            return res.status(500).json({ 
-              message: `Failed to fetch document: HTTP ${response.status}`,
-              error: `Server returned ${response.status}: ${errorText}` 
-            });
-          }
-        } else {
-          const errorText = await response.text();
-          console.error('❌ Error response body:', errorText);
-          return res.status(500).json({ 
-            message: `Failed to fetch document: HTTP ${response.status}`,
-            error: `Server returned ${response.status}: ${errorText}` 
-          });
-        }
-      }
-      
-      console.log('✅ Document fetched successfully');
-      
-      // Get the content type from response
-      const contentType = response.headers.get('content-type') || 'application/pdf';
-      console.log('📄 Content type:', contentType);
-      
-      // Set appropriate headers
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Disposition', `inline; filename="${filename || url.split('/').pop()}"`);
-      res.setHeader('Cache-Control', 'public, max-age=31536000');
-      
-      console.log('📤 Streaming response...');
-      
-      // Stream the response
-      const buffer = await response.arrayBuffer();
-      console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
-      
-      res.send(Buffer.from(buffer));
-      
-      console.log('✅ Document served successfully');
-      
-    } catch (fetchError) {
-      console.error('❌ Error fetching document:', fetchError);
-      console.error('Error details:', fetchError.message);
-      console.error('Error stack:', fetchError.stack);
+    console.log('📊 Response status:', response.status);
+    console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      console.error('❌ Fetch failed with status:', response.status);
+      const errorText = await response.text();
+      console.error('❌ Error response body:', errorText);
       return res.status(500).json({ 
-        message: 'Error fetching document',
-        error: fetchError.message 
+        message: `Failed to fetch document: HTTP ${response.status}`,
+        error: `Server returned ${response.status}: ${errorText}` 
       });
     }
     
+    console.log('✅ Document fetched successfully');
+    
+    // Get the content type from response
+    const contentType = response.headers.get('content-type') || 'application/pdf';
+    console.log('📄 Content type:', contentType);
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename || url.split('/').pop()}"`);
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    
+    console.log('📤 Streaming response...');
+    
+    // Stream the response directly
+    const buffer = await response.arrayBuffer();
+    console.log('📦 Buffer size:', buffer.byteLength, 'bytes');
+    
+    // Send the buffer directly
+    res.send(Buffer.from(buffer));
+    
+    console.log('✅ Document served successfully');
+    
   } catch (error) {
-    console.error('❌ Unexpected error in fetch-document:', error);
+    console.error('❌ Error in fetch-document:', error);
     console.error('Error details:', error.message);
     console.error('Error stack:', error.stack);
     res.status(500).json({ message: 'Error fetching document', error: error.message });
