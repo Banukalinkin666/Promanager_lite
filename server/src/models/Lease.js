@@ -25,34 +25,38 @@ const LeaseSchema = new mongoose.Schema(
     
     // Uploaded documents
     documents: {
-      signedLease: {
-        url: String,
-        filename: String,
-        size: Number,
-        type: String,
-        uploadedAt: Date
+      type: {
+        signedLease: {
+          url: { type: String },
+          filename: { type: String },
+          size: { type: Number },
+          type: { type: String },
+          uploadedAt: { type: Date }
+        },
+        idProof: {
+          url: { type: String },
+          filename: { type: String },
+          size: { type: Number },
+          type: { type: String },
+          uploadedAt: { type: Date }
+        },
+        depositReceipt: {
+          url: { type: String },
+          filename: { type: String },
+          size: { type: Number },
+          type: { type: String },
+          uploadedAt: { type: Date }
+        },
+        moveInInspection: {
+          url: { type: String },
+          filename: { type: String },
+          size: { type: Number },
+          type: { type: String },
+          uploadedAt: { type: Date }
+        }
       },
-      idProof: {
-        url: String,
-        filename: String,
-        size: Number,
-        type: String,
-        uploadedAt: Date
-      },
-      depositReceipt: {
-        url: String,
-        filename: String,
-        size: Number,
-        type: String,
-        uploadedAt: Date
-      },
-      moveInInspection: {
-        url: String,
-        filename: String,
-        size: Number,
-        type: String,
-        uploadedAt: Date
-      }
+      default: {},
+      _id: false
     },
     
     // Terms and conditions
