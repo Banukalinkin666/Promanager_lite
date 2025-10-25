@@ -151,16 +151,16 @@ function Sidebar({ isOpen, onToggle }) {
                 style={{ objectFit: 'contain' }}
               />
             </div>
-          ) : (
-            <div className="flex items-center justify-center w-full">
-              <img 
-                src="/spm-logo-icon.png" 
-                alt="SPM" 
-                className="h-10 w-10"
-                style={{ objectFit: 'contain' }}
-              />
-            </div>
-          )}
+                      ) : (
+              <div className="flex items-center justify-center w-full">
+                <img 
+                  src="/spm-logo-white.png" 
+                  alt="SPM" 
+                  className="h-10 w-auto"
+                  style={{ objectFit: 'contain' }}
+                />
+              </div>
+            )}
           <button 
             onClick={onToggle}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
