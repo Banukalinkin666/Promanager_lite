@@ -27,9 +27,13 @@ app.use(cors({
   origin: [
     process.env.CORS_ORIGIN || process.env.CLIENT_URL,
     'https://spm-frontend-gvcu.onrender.com',
-    'https://spm-frontend.onrender.com'
+    'https://spm-frontend.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:5173'
   ].filter(Boolean),
-  credentials: true 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -41,7 +45,18 @@ const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, service: 'Smart Property Manager API' });
+  res.json({ 
+    ok: true, 
+    service: 'Smart Property Manager API',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.0'
+  });
+});
+
+// Simple ping endpoint
+app.get('/ping', (_req, res) => {
+  res.json({ pong: true, timestamp: new Date().toISOString() });
 });
 
 // Seeding endpoint for production
