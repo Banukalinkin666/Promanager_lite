@@ -242,32 +242,33 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     const termsValueX = marginLeft + termsLabelWidth + 10;
     const termsLeftColWidth = 200;
     
-    // Define consistent positioning for all values - fixed X position for alignment
-    const valueStartX = marginLeft + 140; // Fixed position for all values
+    // Define consistent positioning for all values - use fixed column approach
+    const labelX = marginLeft + 10;
+    const valueX = marginLeft + 140; // Fixed position for all values
     
     doc.fontSize(10).font('Helvetica-Bold')
        .fillColor('#000000')
-       .text('Lease Start Date:', marginLeft + 10, currentY, { width: termsLabelWidth });
+       .text('Lease Start Date:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueStartX, currentY);
+       .text(new Date(leaseData.leaseStartDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueX, currentY, { width: 200 });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
-       .text('Lease End Date:', marginLeft + 10, currentY, { width: termsLabelWidth });
+       .text('Lease End Date:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueStartX, currentY);
+       .text(new Date(leaseData.leaseEndDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), valueX, currentY, { width: 200 });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
-       .text('Monthly Rent:', marginLeft + 10, currentY, { width: termsLabelWidth });
+       .text('Monthly Rent:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(`$${leaseData.monthlyRent}`, valueStartX, currentY);
+       .text(`$${leaseData.monthlyRent}`, valueX, currentY, { width: 200 });
     
     currentY += 20;
     doc.font('Helvetica-Bold')
-       .text('Security Deposit:', marginLeft + 10, currentY, { width: termsLabelWidth });
+       .text('Security Deposit:', labelX, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
-       .text(`$${leaseData.securityDeposit || 0}`, valueStartX, currentY);
+       .text(`$${leaseData.securityDeposit || 0}`, valueX, currentY, { width: 200 });
     
     doc.y = termsBoxY + termsBoxHeight + 10;
     doc.moveDown(1.5);
