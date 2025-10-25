@@ -549,9 +549,9 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
   return (
     <div className={isFullPage ? "min-h-screen bg-gray-50 dark:bg-gray-900" : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"}>
       <div className={`bg-white dark:bg-gray-800 ${isFullPage ? "min-h-screen" : "rounded-lg max-w-7xl w-full my-8"}`}>
-        <div className="p-6">
+        <div className="p-4">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-4">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Home size={24} />
@@ -571,7 +571,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
           
           {/* Tenant Information Display */}
           {formData.tenantId && formData.tenantName ? (
-            <div className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900 dark:to-green-900 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+            <div className="mb-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900 dark:to-green-900 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
               <div className="flex items-center gap-4">
                 <div className="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold">
                   {formData.tenantName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
@@ -616,7 +616,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
               </div>
             </div>
           ) : (
-            <div className="mb-6 bg-yellow-50 dark:bg-yellow-900 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700">
+            <div className="mb-4 bg-yellow-50 dark:bg-yellow-900 rounded-lg p-3 border border-yellow-200 dark:border-yellow-700">
               <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
                 <AlertCircle size={20} />
                 <span className="text-sm font-medium">
@@ -626,13 +626,13 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
             </div>
           )}
           
-          {/* Scrollable Form Sections */}
-          <div className="max-h-[calc(100vh-400px)] overflow-y-auto space-y-4 mb-6 pr-2">
+          {/* Form Sections - No Scrolling */}
+          <div className="space-y-3 mb-4">
             {/* Section 1: Property Information */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleSection(1)}
-                className="w-full bg-blue-50 dark:bg-blue-900 p-4 flex items-center justify-between hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors"
+                className="w-full bg-blue-50 dark:bg-blue-900 p-3 flex items-center justify-between hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <Building size={20} className="text-blue-600 dark:text-blue-400" />
@@ -645,10 +645,10 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
               </button>
               
               {expandedSections.includes(1) && (
-                <div className="p-4 space-y-4 bg-white dark:bg-gray-800">
+                <div className="p-3 space-y-3 bg-white dark:bg-gray-800">
                   {/* Property Info Card - Read Only */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       <div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Property Name</div>
                         <div className="font-semibold text-gray-900 dark:text-white">{formData.propertyName || 'N/A'}</div>
@@ -681,7 +681,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
                   </div>
                   
                   {/* Move-in/out Dates - Editable */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                     <div>
                       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <Calendar size={16} />
@@ -716,7 +716,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleSection(2)}
-                className="w-full bg-green-50 dark:bg-green-900 p-4 flex items-center justify-between hover:bg-green-100 dark:hover:bg-green-800 transition-colors"
+                className="w-full bg-green-50 dark:bg-green-900 p-3 flex items-center justify-between hover:bg-green-100 dark:hover:bg-green-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <User size={20} className="text-green-600 dark:text-green-400" />
@@ -729,7 +729,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
               </button>
               
               {expandedSections.includes(2) && (
-                <div className="p-4 space-y-4 bg-white dark:bg-gray-800">
+                <div className="p-3 space-y-3 bg-white dark:bg-gray-800">
                   <div>
                     <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                       Select Tenant <span className="text-red-500">*</span>
@@ -749,7 +749,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
                     {errors.tenantId && <p className="text-red-500 text-xs mt-1">{errors.tenantId}</p>}
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                         Tenant Name <span className="text-red-500">*</span>
@@ -857,7 +857,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleSection(3)}
-                className="w-full bg-purple-50 dark:bg-purple-900 p-4 flex items-center justify-between hover:bg-purple-100 dark:hover:bg-purple-800 transition-colors"
+                className="w-full bg-purple-50 dark:bg-purple-900 p-3 flex items-center justify-between hover:bg-purple-100 dark:hover:bg-purple-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <Calendar size={20} className="text-purple-600 dark:text-purple-400" />
@@ -870,8 +870,8 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
               </button>
               
               {expandedSections.includes(3) && (
-                <div className="p-4 space-y-4 bg-white dark:bg-gray-800">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3 space-y-3 bg-white dark:bg-gray-800">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                         Lease Start Date <span className="text-red-500">*</span>
@@ -959,7 +959,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleSection(4)}
-                className="w-full bg-yellow-50 dark:bg-yellow-900 p-4 flex items-center justify-between hover:bg-yellow-100 dark:hover:bg-yellow-800 transition-colors"
+                className="w-full bg-yellow-50 dark:bg-yellow-900 p-3 flex items-center justify-between hover:bg-yellow-100 dark:hover:bg-yellow-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <DollarSign size={20} className="text-yellow-600 dark:text-yellow-400" />
@@ -972,8 +972,8 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
               </button>
               
               {expandedSections.includes(4) && (
-                <div className="p-4 space-y-4 bg-white dark:bg-gray-800">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3 space-y-3 bg-white dark:bg-gray-800">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                         Monthly Rent Amount <span className="text-red-500">*</span>
@@ -1055,7 +1055,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleSection(5)}
-                className="w-full bg-orange-50 dark:bg-orange-900 p-4 flex items-center justify-between hover:bg-orange-100 dark:hover:bg-orange-800 transition-colors"
+                className="w-full bg-orange-50 dark:bg-orange-900 p-3 flex items-center justify-between hover:bg-orange-100 dark:hover:bg-orange-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <Zap size={20} className="text-orange-600 dark:text-orange-400" />
@@ -1068,8 +1068,8 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
               </button>
               
               {expandedSections.includes(5) && (
-                <div className="p-4 space-y-4 bg-white dark:bg-gray-800">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3 space-y-3 bg-white dark:bg-gray-800">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                         Electricity Meter No
@@ -1174,7 +1174,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleSection(6)}
-                className="w-full bg-red-50 dark:bg-red-900 p-4 flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-800 transition-colors"
+                className="w-full bg-red-50 dark:bg-red-900 p-3 flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <FileText size={20} className="text-red-600 dark:text-red-400" />
@@ -1187,7 +1187,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
               </button>
               
               {expandedSections.includes(6) && (
-                <div className="p-4 space-y-4 bg-white dark:bg-gray-800">
+                <div className="p-3 space-y-3 bg-white dark:bg-gray-800">
                   {/* Document Upload Fields */}
                   {[
                     { key: 'signedLease', label: 'Signed Lease Agreement', accept: '.pdf,.docx' },
@@ -1256,7 +1256,7 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess, isFul
           </div>
           
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={handleSaveDraft}
               disabled={loading}
