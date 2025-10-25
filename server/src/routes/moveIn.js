@@ -163,6 +163,86 @@ router.post('/test-download', (req, res) => {
   }
 });
 
+// Simple test endpoint to check Cloudinary URL access
+router.post('/test-cloudinary', (req, res) => {
+  console.log('🧪 Test Cloudinary endpoint hit!');
+  console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ message: 'URL is required' });
+    }
+    
+    console.log('📥 Testing Cloudinary URL:', url);
+    
+    // Try the URL as-is first
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': '*/*'
+      },
+      redirect: 'follow'
+    })
+    .then(response => {
+      console.log('📊 Direct response status:', response.status);
+      console.log('📊 Direct response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (response.ok) {
+        return res.json({ 
+          message: 'Direct access successful',
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      } else {
+        // Try with fl_attachment
+        const downloadUrl = url.includes('?') ? `${url}&fl_attachment` : `${url}?fl_attachment`;
+        console.log('🔄 Trying with fl_attachment:', downloadUrl);
+        
+        return fetch(downloadUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': '*/*'
+          },
+          redirect: 'follow'
+        });
+      }
+    })
+    .then(response => {
+      if (response && response.ok) {
+        console.log('📊 fl_attachment response status:', response.status);
+        console.log('📊 fl_attachment response headers:', Object.fromEntries(response.headers.entries()));
+        
+        return res.json({ 
+          message: 'fl_attachment access successful',
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      } else {
+        return res.status(500).json({ 
+          message: 'Both direct and fl_attachment access failed',
+          directStatus: response?.status || 'unknown',
+          error: 'All methods failed'
+        });
+      }
+    })
+    .catch(error => {
+      console.error('❌ Test Cloudinary error:', error);
+      res.status(500).json({ 
+        message: 'Test Cloudinary failed',
+        error: error.message 
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ Test Cloudinary endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get signed Cloudinary URL for direct download (alternative to proxying)
 router.post('/get-signed-url', authenticate, async (req, res) => {
   try {
@@ -476,7 +556,7 @@ router.post('/proxy-document', authenticate, async (req, res) => {
             resource_type: 'raw',
             secure: true,
             sign_url: true,
-            transformation: [{ flags: 'attachment' }]
+            // Remove transformation to avoid 401 errors
           });
           
           console.log('🔒 Generated signed URL:', signedUrl);
@@ -629,6 +709,34 @@ router.post('/fetch-document', authenticate, async (req, res) => {
         }
       }
       
+      // Method 2.5: Try without any transformation (for files uploaded without attachment flag)
+      if (!success) {
+        try {
+          console.log('🔄 Method 2.5: Without any transformation...');
+          // Remove any existing transformations from the URL
+          const cleanUrl = url.split('?')[0]; // Remove query parameters
+          
+          response = await fetch(cleanUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': '*/*'
+            },
+            redirect: 'follow'
+          });
+          
+          if (response.ok) {
+            console.log('✅ Method 2.5: Clean URL successful');
+            success = true;
+          } else {
+            throw new Error(`Clean URL failed: ${response.status}`);
+          }
+        } catch (error) {
+          console.log('⚠️ Method 2.5 failed:', error.message);
+          lastError = error;
+        }
+      }
+      
       // Method 3: Try with Cloudinary SDK (signed URL)
       if (!success) {
         try {
@@ -652,7 +760,7 @@ router.post('/fetch-document', authenticate, async (req, res) => {
             resource_type: 'raw',
             secure: true,
             sign_url: true,
-            transformation: [{ flags: 'attachment' }]
+            // Remove transformation to avoid 401 errors
           });
           
           console.log('🔒 Generated signed URL:', signedUrl);
