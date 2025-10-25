@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, CheckCircle, AlertCircle, X, RefreshCw, FileText, Download, User, Building, DollarSign, Mail, Phone, CreditCard, Zap, Droplets, Home } from 'lucide-react';
 import api from '../lib/api';
+import { useToast } from './ToastContainer';
 
 const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
+  const toast = useToast();
   const [lease, setLease] = useState(null);
   const [tenant, setTenant] = useState(null);
   const [payments, setPayments] = useState([]);
@@ -147,26 +149,47 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
   const downloadDocument = async (doc) => {
     if (!doc || !doc.url) {
       console.error('No document URL provided');
+      toast.error('No document URL provided');
       return;
     }
     
     try {
-      // Get the token from localStorage
-      const token = localStorage.getItem('token');
+      console.log('📄 Starting document download:', doc.url);
       
-      // Check if it's a full URL or relative path
-      let documentUrl = doc.url;
+      let blob;
+      let fileName = doc.filename || 'document';
       
-      // If it's a Cloudinary URL (starts with http/https), use it directly
-      if (documentUrl.startsWith('http://') || documentUrl.startsWith('https://')) {
-        // For Cloudinary URLs, we can open directly
-        window.open(documentUrl, '_blank');
+      // If it's a Cloudinary URL, we need to fetch it through our backend with authentication
+      if (doc.url.startsWith('http://') || doc.url.startsWith('https://')) {
+        console.log('🔗 Cloudinary URL detected, fetching through backend...');
+        
+        // Use backend proxy to fetch Cloudinary files with authentication
+        const token = localStorage.getItem('token');
+        const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
+        
+        // Create a proxy endpoint call to fetch the document
+        const response = await fetch(`${backendUrl}/proxy-document`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ url: doc.url })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        blob = await response.blob();
+        console.log('✅ Document fetched successfully via proxy');
       } else {
         // For local paths, construct the full URL
+        console.log('📁 Local path detected');
+        const token = localStorage.getItem('token');
         const backendUrl = import.meta.env.VITE_API_URL || 'https://promanager-lite-1.onrender.com/api';
-        const fullUrl = `${backendUrl.replace('/api', '')}${documentUrl}`;
+        const fullUrl = `${backendUrl.replace('/api', '')}${doc.url}`;
         
-        // Fetch with authentication
         const response = await fetch(fullUrl, {
           headers: token ? {
             'Authorization': `Bearer ${token}`
@@ -177,29 +200,35 @@ const LeaseDetailsViewModal = ({ unit, property, isOpen, onClose }) => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Get the blob
-        const blob = await response.blob();
-        
-        // Create a URL for the blob
-        const blobUrl = window.URL.createObjectURL(blob);
-        
-        // Open in new window
-        const newWindow = window.open(blobUrl, '_blank');
-        
-        if (!newWindow) {
-          // If popup was blocked, trigger download
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = doc.filename || 'document.pdf';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(blobUrl);
-        }
+        blob = await response.blob();
       }
+      
+      // Create a URL for the blob
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Try to open in new window first
+      const newWindow = window.open(blobUrl, '_blank');
+      
+      if (!newWindow) {
+        // If popup was blocked, trigger download
+        console.log('⚠️ Popup blocked, triggering download instead');
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      // Clean up the blob URL after a delay
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+      
+      toast.success('Document opened successfully');
+      
     } catch (error) {
-      console.error('Error downloading document:', error);
-      alert('Failed to download document. Please try again later.');
+      console.error('❌ Error downloading document:', error);
+      console.error('Error details:', error.message);
+      toast.error(`Failed to download document: ${error.message}`);
     }
   };
 

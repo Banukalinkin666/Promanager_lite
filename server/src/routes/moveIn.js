@@ -159,6 +159,46 @@ router.post('/upload-document', authenticate, authorize('OWNER', 'ADMIN'), (req,
   });
 });
 
+// Proxy endpoint to fetch documents with authentication
+router.post('/proxy-document', authenticate, async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ message: 'URL is required' });
+    }
+    
+    console.log('📥 Fetching document from:', url);
+    
+    // Fetch the document from Cloudinary or local storage
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error('❌ Failed to fetch document:', response.status, response.statusText);
+      return res.status(response.status).json({ 
+        message: `Failed to fetch document: ${response.statusText}` 
+      });
+    }
+    
+    // Get the content type from the original response
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${url.split('/').pop()}"`);
+    
+    // Stream the response
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+    
+    console.log('✅ Document proxied successfully');
+    
+  } catch (error) {
+    console.error('❌ Error proxying document:', error);
+    res.status(500).json({ message: 'Error fetching document', error: error.message });
+  }
+});
+
 // Get available tenants for move-in
 router.get('/tenants', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
   try {
