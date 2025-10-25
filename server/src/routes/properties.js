@@ -117,6 +117,72 @@ router.get('/stats', authenticate, authorize('OWNER', 'ADMIN'), async (req, res)
   }
 });
 
+// Debug endpoint to check rent calculation for specific unit
+router.get('/debug-rent/:unitId', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
+  try {
+    const { unitId } = req.params;
+    console.log('🔍 Debugging rent for unit:', unitId);
+    
+    // Import Payment model
+    const Payment = (await import('../models/Payment.js')).default;
+    
+    // Get all payments for this specific unit
+    const payments = await Payment.find({
+      'metadata.unitId': unitId
+    });
+    
+    console.log('📊 Found payments for unit:', payments.length);
+    console.log('📊 Payment details:', payments.map(p => ({
+      id: p._id,
+      amount: p.amount,
+      status: p.status,
+      propertyId: p.metadata?.propertyId,
+      unitId: p.metadata?.unitId,
+      originalAmount: p.metadata?.originalAmount,
+      month: p.metadata?.month,
+      dueDate: p.metadata?.dueDate
+    })));
+    
+    // Calculate totals
+    let totalPaid = 0;
+    let totalPending = 0;
+    let totalDue = 0;
+    const today = new Date();
+    
+    payments.forEach(payment => {
+      const originalAmount = payment.metadata?.originalAmount || payment.amount;
+      const dueDate = new Date(payment.metadata?.dueDate || payment.createdAt);
+      
+      if (payment.status === 'SUCCEEDED') {
+        totalPaid += originalAmount;
+      } else if (today > dueDate) {
+        totalDue += originalAmount;
+      } else {
+        totalPending += originalAmount;
+      }
+    });
+    
+    res.json({
+      unitId,
+      totalPayments: payments.length,
+      totalPaid,
+      totalPending,
+      totalDue,
+      payments: payments.map(p => ({
+        id: p._id,
+        amount: p.amount,
+        status: p.status,
+        originalAmount: p.metadata?.originalAmount,
+        month: p.metadata?.month,
+        dueDate: p.metadata?.dueDate
+      }))
+    });
+  } catch (error) {
+    console.error('Error debugging rent:', error);
+    res.status(500).json({ message: 'Error debugging rent', error: error.message });
+  }
+});
+
 // Get tenant and rent statistics (OWNER, ADMIN)
 router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), async (req, res) => {
   try {
@@ -189,8 +255,9 @@ router.get('/tenant-rent-stats', authenticate, authorize('OWNER', 'ADMIN'), asyn
         
         if (paymentStatus === 'SUCCEEDED') {
           // For succeeded payments, use the original amount to reflect the full rent value
+          // This includes payments covered by advance payment (amount=0 but status=SUCCEEDED)
           rentStatusBreakdown.paid += originalAmount;
-          console.log(`     ✅ Added to paid: ${originalAmount}`);
+          console.log(`     ✅ Added to paid: ${originalAmount} (payment amount: ${payment.amount})`);
         } else {
           if (today > rentDueDate) {
             rentStatusBreakdown.due += originalAmount;
