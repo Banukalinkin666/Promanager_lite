@@ -182,8 +182,8 @@ router.post('/proxy-document', authenticate, async (req, res) => {
     if (isCloudinary) {
       // For Cloudinary, try to fetch with proper authentication
       console.log('☁️ Cloudinary URL detected');
-       
-            try {
+      
+      try {
         // Try with Cloudinary SDK secure_url generation
         // Extract public ID from the URL
         const urlParts = url.split('/');
@@ -198,38 +198,41 @@ router.post('/proxy-document', authenticate, async (req, res) => {
         
         console.log('📄 Extracted public ID:', publicId);
         
-        // Generate a secure signed URL using Cloudinary SDK
+        // Generate a secure signed URL using Cloudinary SDK - FORCE PUBLIC ACCESS
         const secureUrl = cloudinaryV1.url(publicId, {
           resource_type: 'raw',
           secure: true,
-          sign_url: true
+          sign_url: false, // Don't sign - make it publicly accessible
+          transformation: [{ flags: 'attachment' }] // Make it downloadable
         });
         
-        console.log('🔒 Generated signed URL:', secureUrl);
+        console.log('🔒 Generated public URL:', secureUrl);
         
-        // Fetch using the signed URL
+        // Fetch using the public URL
         response = await fetch(secureUrl, {
           method: 'GET',
           redirect: 'follow'
         });
         
         if (!response.ok) {
-          throw new Error(`Cloudinary signed URL fetch failed: ${response.status} ${response.statusText}`);
+          throw new Error(`Cloudinary fetch failed: ${response.status} ${response.statusText}`);
         }
         
-        console.log('✅ Cloudinary document fetched via signed URL');
+        console.log('✅ Cloudinary document fetched via public URL');
       } catch (cloudError) {
-        console.log('⚠️ Signed URL fetch failed:', cloudError.message);
-        console.log('⚠️ Trying direct fetch...');
+        console.log('⚠️ Cloudinary fetch failed:', cloudError.message);
+        console.log('⚠️ Trying direct fetch with download parameter...');
         
-        // Fallback: try direct fetch
+        // Fallback: try direct fetch with download parameter
         try {
-          response = await fetch(url, {
+          // Add fl_attachment to make it downloadable
+          const downloadUrl = url.includes('?') ? `${url}&fl_attachment` : `${url}?fl_attachment`;
+          
+          response = await fetch(downloadUrl, {
             method: 'GET',
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Accept': '*/*',
-              'Accept-Language': 'en-US,en;q=0.9'
+              'Accept': '*/*'
             },
             redirect: 'follow'
           });

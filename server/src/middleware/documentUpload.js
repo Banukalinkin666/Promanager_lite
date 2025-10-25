@@ -36,9 +36,8 @@ if (USE_CLOUD_STORAGE && process.env.CLOUDINARY_CLOUD_NAME) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         return `spm/documents/${file.fieldname}-${uniqueSuffix}`;
       },
-      transformation: [
-        { flags: 'attachment' } // Make documents downloadable
-      ]
+      // Remove transformation to make files publicly accessible
+      // transformation: [{ flags: 'attachment' }] // This was causing 401 errors
     }
   });
 
