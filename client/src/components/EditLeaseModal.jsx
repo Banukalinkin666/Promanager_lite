@@ -271,7 +271,7 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
 
     setLoading(true);
     try {
-      const response = await api.put(`/move-in/leases/${lease._id}`, {
+      const updateData = {
         leaseStartDate: formData.leaseStartDate,
         leaseEndDate: formData.leaseEndDate,
         monthlyRent: parseFloat(formData.monthlyRent),
@@ -285,14 +285,22 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
         },
         notes: formData.notes,
         documents: formData.documents
-      });
+      };
+      
+      console.log('📤 Updating lease with data:', updateData);
+      console.log('📄 Documents being sent:', formData.documents);
+      
+      const response = await api.put(`/move-in/leases/${lease._id}`, updateData);
 
       // Store updated lease data and show success modal
       setUpdatedLeaseData(response.data);
       setShowSuccessModal(true);
       toast.success('Lease updated successfully!');
     } catch (error) {
-      console.error('Error updating lease:', error);
+      console.error('❌ Error updating lease:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error message:', error.message);
       
       let errorMessage = 'Failed to update lease';
       
@@ -304,8 +312,11 @@ export default function EditLeaseModal({ isOpen, onClose, unit, property, onSucc
         errorMessage = 'Lease not found';
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
+      console.error('Final error message:', errorMessage);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
