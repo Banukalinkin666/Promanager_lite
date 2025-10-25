@@ -233,7 +233,7 @@ export const streamRentAgreementPDF = (leaseData, res) => {
     doc.moveDown(0.8);
     
     const termsBoxY = doc.y;
-    const termsBoxHeight = 120;
+    const termsBoxHeight = 80;
     drawBox(marginLeft, termsBoxY, contentWidth, termsBoxHeight, '#fff3cd');
     
     // Left column - Lease dates and rent
@@ -265,39 +265,6 @@ export const streamRentAgreementPDF = (leaseData, res) => {
        .text('Security Deposit:', marginLeft + 10, currentY, { width: termsLabelWidth });
     doc.font('Helvetica')
        .text(`$${leaseData.securityDeposit || 0}`, termsValueX, currentY, { width: termsLeftColWidth });
-    
-    // Right column - Additional terms (moved further right)
-    if (leaseData.terms) {
-      const termsRightColX = marginLeft + 340;
-      const termsRightLabelWidth = 80;
-      const termsRightValueX = termsRightColX + termsRightLabelWidth + 10;
-      const termsRightColWidth = contentWidth - 340 - termsRightLabelWidth - 30;
-      
-      currentY = termsBoxY + 15;
-      
-      doc.font('Helvetica-Bold')
-         .text('Late Fee:', termsRightColX + 10, currentY, { width: termsRightLabelWidth });
-      doc.font('Helvetica')
-         .text(`$${leaseData.terms.lateFeeAmount || 50}`, termsRightValueX, currentY, { width: termsRightColWidth });
-      
-      currentY += 20;
-      doc.font('Helvetica-Bold')
-         .text('Grace Period:', termsRightColX + 10, currentY, { width: termsRightLabelWidth });
-      doc.font('Helvetica')
-         .text(`${leaseData.terms.lateFeeAfterDays || 5} days`, termsRightValueX, currentY, { width: termsRightColWidth });
-      
-      currentY += 20;
-      doc.font('Helvetica-Bold')
-         .text('Notice Period:', termsRightColX + 10, currentY, { width: termsRightLabelWidth });
-      doc.font('Helvetica')
-         .text(`${leaseData.terms.noticePeriodDays || 30} days`, termsRightValueX, currentY, { width: termsRightColWidth });
-      
-      currentY += 20;
-      doc.font('Helvetica-Bold')
-         .text('Pet Policy:', termsRightColX + 10, currentY, { width: termsRightLabelWidth });
-      doc.font('Helvetica')
-         .text(leaseData.terms.petAllowed ? 'Allowed' : 'Not Allowed', termsRightValueX, currentY, { width: termsRightColWidth });
-    }
     
     doc.y = termsBoxY + termsBoxHeight + 10;
     doc.moveDown(1.5);
