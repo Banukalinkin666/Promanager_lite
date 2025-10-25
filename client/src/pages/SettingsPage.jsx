@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { useTheme } from '../contexts/ThemeContext';
 import { 
   Settings, Users, Shield, User, Mail, Phone, Calendar,
   Search, Edit, Key, ToggleLeft, ToggleRight, 
-  UserCheck, UserX, Save, X, Eye, EyeOff, AlertTriangle
+  UserCheck, UserX, Save, X, Eye, EyeOff, AlertTriangle,
+  Palette, Sun, Moon, Monitor
 } from 'lucide-react';
 import api from '../lib/api.js';
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const { theme, setThemeMode } = useTheme();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('profile');
   const [users, setUsers] = useState([]);
@@ -275,6 +278,7 @@ export default function SettingsPage() {
   };
 
   const tabs = [
+    { id: 'appearance', label: 'Appearance', icon: Palette },
     ...(user?.role === 'ADMIN' ? [{ id: 'user-management', label: 'User Management', icon: Shield }] : [])
   ];
 
@@ -316,6 +320,106 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
 
             <div className="p-6">
+              {/* Appearance Tab */}
+              {activeTab === 'appearance' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Appearance Settings</h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-6">Customize the look and feel of your application.</p>
+                  </div>
+
+                  {/* Theme Selection */}
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                    <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4">Theme</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                      Choose your preferred theme. The system will remember your choice across all browsers.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Light Theme */}
+                      <button
+                        onClick={() => setThemeMode('light')}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          theme === 'light'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-white border-2 border-gray-200 rounded-lg flex items-center justify-center">
+                            <Sun size={24} className="text-yellow-500" />
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium text-gray-900 dark:text-white">Light</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Clean and bright</div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Dark Theme */}
+                      <button
+                        onClick={() => setThemeMode('dark')}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          theme === 'dark'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gray-800 border-2 border-gray-600 rounded-lg flex items-center justify-center">
+                            <Moon size={24} className="text-blue-400" />
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium text-gray-900 dark:text-white">Dark</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Easy on the eyes</div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* System Theme */}
+                      <button
+                        onClick={() => {
+                          // Auto-detect system preference
+                          const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                          setThemeMode(systemPrefersDark ? 'dark' : 'light');
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          theme === 'auto'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-800 border-2 border-gray-400 rounded-lg flex items-center justify-center">
+                            <Monitor size={24} className="text-gray-600" />
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium text-gray-900 dark:text-white">System</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Follow system</div>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-6 h-6 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
+                            <span className="text-blue-600 dark:text-blue-300 text-sm">ℹ</span>
+                          </div>
+                        </div>
+                        <div className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="font-medium">Theme Consistency</p>
+                          <p className="mt-1">
+                            Your theme preference is saved locally and will be consistent across Chrome, Edge, Firefox, and other browsers.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* User Management Tab (Admin Only) */}
               {activeTab === 'user-management' && user?.role === 'ADMIN' && (
             <div className="space-y-6">

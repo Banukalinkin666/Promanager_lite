@@ -5,6 +5,8 @@ import {
   TrendingUp, Settings, LogOut, ChevronLeft, ChevronRight, User, ChevronDown, UserCircle, Shield
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx';
+import { ThemeProvider } from './contexts/ThemeContext';
+import ThemeToggle from './components/ThemeToggle';
 import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import PropertiesPage from './pages/PropertiesPage.jsx';
@@ -226,7 +228,8 @@ function Header({ showProfileModal, setShowProfileModal }) {
 
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 h-12 flex items-center">
-      <div className="flex justify-end items-center w-full">
+      <div className="flex justify-end items-center w-full gap-3">
+        <ThemeToggle />
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
@@ -668,21 +671,23 @@ function Layout({ children }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Layout>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/properties" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
-          <Route path="/properties/:id" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
-          <Route path="/tenants" element={<ProtectedRoute roles={['OWNER','ADMIN']}><TenantsPage /></ProtectedRoute>} />
-          <Route path="/payments" element={<ProtectedRoute roles={['TENANT','OWNER','ADMIN']}><PaymentsPage /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute roles={['OWNER','ADMIN']}><ReportsPage /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-          <Route path="/settings/user-management" element={<ProtectedRoute roles={['ADMIN']}><SettingsPage /></ProtectedRoute>} />
-        </Routes>
-      </Layout>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Layout>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/properties" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
+            <Route path="/properties/:id" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
+            <Route path="/tenants" element={<ProtectedRoute roles={['OWNER','ADMIN']}><TenantsPage /></ProtectedRoute>} />
+            <Route path="/payments" element={<ProtectedRoute roles={['TENANT','OWNER','ADMIN']}><PaymentsPage /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute roles={['OWNER','ADMIN']}><ReportsPage /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            <Route path="/settings/user-management" element={<ProtectedRoute roles={['ADMIN']}><SettingsPage /></ProtectedRoute>} />
+          </Routes>
+        </Layout>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
