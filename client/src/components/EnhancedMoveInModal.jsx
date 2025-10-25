@@ -377,8 +377,11 @@ const EnhancedMoveInModal = ({ isOpen, onClose, unit, property, onSuccess }) => 
           noticePeriodDays: 30,
           petAllowed: false,
           smokingAllowed: false
-        }
+        },
+        documents: formData.documents
       };
+      
+      console.log('📤 Sending documents with move-in:', formData.documents);
       
       const response = await api.post(`/move-in/${property._id}/${unit._id}`, moveInData);
       

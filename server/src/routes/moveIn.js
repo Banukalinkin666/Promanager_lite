@@ -180,7 +180,8 @@ router.post('/:propertyId/:unitId', authenticate, authorize('OWNER', 'ADMIN'), a
       leaseEndDate, 
       monthlyRent, 
       securityDeposit = 0,
-      terms = {}
+      terms = {},
+      documents = {}
     } = req.body;
 
     // Validate required fields
@@ -222,6 +223,28 @@ router.post('/:propertyId/:unitId', authenticate, authorize('OWNER', 'ADMIN'), a
       return res.status(404).json({ message: 'Property owner not found' });
     }
 
+    // Clean up documents - only include fields that exist in the schema
+    const cleanedDocuments = {};
+    
+    ['signedLease', 'idProof', 'depositReceipt', 'moveInInspection'].forEach(field => {
+      if (documents[field]) {
+        // Only include if it's an object (not null, not empty)
+        if (typeof documents[field] === 'object' && documents[field] !== null) {
+          cleanedDocuments[field] = {
+            url: documents[field].url || '',
+            filename: documents[field].filename || '',
+            size: documents[field].size || 0,
+            type: documents[field].type || '',
+            uploadedAt: documents[field].uploadedAt || new Date()
+          };
+        } else {
+          cleanedDocuments[field] = null;
+        }
+      }
+    });
+    
+    console.log('📄 Saving documents during move-in:', cleanedDocuments);
+
     // Create lease record
     const leaseData = {
       property: propertyId,
@@ -238,7 +261,8 @@ router.post('/:propertyId/:unitId', authenticate, authorize('OWNER', 'ADMIN'), a
         noticePeriodDays: parseInt(terms.noticePeriodDays) || 30,
         petAllowed: Boolean(terms.petAllowed),
         smokingAllowed: Boolean(terms.smokingAllowed)
-      }
+      },
+      documents: cleanedDocuments
     };
 
     const lease = new Lease(leaseData);
