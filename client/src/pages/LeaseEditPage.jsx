@@ -69,10 +69,14 @@ const LeaseEditPage = () => {
       }
 
       try {
-        const unitResponse = await api.get(`/properties/${propertyId}/units/${unitId}`);
-        unitData = unitResponse.data;
+        // Get unit data from the property data (units are embedded in property)
+        const unit = propertyData.units.find(u => u._id.toString() === unitId);
+        if (!unit) {
+          throw new Error('Unit not found in property');
+        }
+        unitData = unit;
         setUnit(unitData);
-        console.log('✅ Unit loaded:', unitData.name);
+        console.log('✅ Unit loaded from property:', unitData.name);
       } catch (err) {
         console.error('❌ Error loading unit:', err);
         throw new Error('Failed to load unit data');
