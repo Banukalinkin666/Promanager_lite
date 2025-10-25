@@ -11,6 +11,9 @@ import Lease from '../models/Lease.js';
 import Payment from '../models/Payment.js';
 import { generateRentAgreementPDF, streamRentAgreementPDF } from '../services/pdfGenerator.js';
 import documentUpload, { USE_CLOUD_STORAGE } from '../middleware/documentUpload.js';
+import cloudinary from 'cloudinary';
+
+const cloudinaryV1 = cloudinary.v2;
 
 const router = express.Router();
 
@@ -177,51 +180,72 @@ router.post('/proxy-document', authenticate, async (req, res) => {
     let response;
     
     if (isCloudinary) {
-      // For Cloudinary, try to fetch without authentication first
-      // Cloudinary URLs are usually public
+      // For Cloudinary, try to fetch with proper authentication
       console.log('☁️ Cloudinary URL detected');
        
-       try {
-         // Try direct access without authentication
-         response = await fetch(url, {
-           method: 'GET',
-           redirect: 'follow'
-         });
-         
-         if (!response.ok) {
-           throw new Error(`Cloudinary fetch failed: ${response.status} ${response.statusText}`);
-         }
-         
-         console.log('✅ Cloudinary document fetched successfully');
-       } catch (cloudError) {
-         console.log('⚠️ Direct Cloudinary fetch failed:', cloudError.message);
-         console.log('⚠️ Trying with additional headers...');
-         
-         // If direct access fails, try with additional headers
-         try {
-           response = await fetch(url, {
-             method: 'GET',
-             headers: {
-               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-               'Accept': '*/*',
-               'Accept-Language': 'en-US,en;q=0.9',
-               'Referer': 'https://res.cloudinary.com/'
-             },
-             redirect: 'follow'
-           });
-           
-           if (!response.ok) {
-             console.error('❌ Cloudinary fetch with headers failed:', response.status, response.statusText);
-             throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
-           }
-           
-           console.log('✅ Cloudinary document fetched with headers');
-         } catch (headerError) {
-           console.error('❌ All Cloudinary fetch attempts failed:', headerError.message);
-           throw new Error(`Failed to fetch Cloudinary document: ${headerError.message}`);
-         }
-       }
-     } else {
+            try {
+        // Try with Cloudinary SDK secure_url generation
+        // Extract public ID from the URL
+        const urlParts = url.split('/');
+        const uploadIndex = urlParts.findIndex(part => part === 'upload');
+        
+        if (uploadIndex === -1) {
+          throw new Error('Invalid Cloudinary URL');
+        }
+        
+        const publicIdWithFormat = urlParts.slice(uploadIndex + 2).join('/');
+        const publicId = publicIdWithFormat.replace(/\.\w+$/, ''); // Remove file extension
+        
+        console.log('📄 Extracted public ID:', publicId);
+        
+        // Generate a secure signed URL using Cloudinary SDK
+        const secureUrl = cloudinaryV1.url(publicId, {
+          resource_type: 'raw',
+          secure: true,
+          sign_url: true
+        });
+        
+        console.log('🔒 Generated signed URL:', secureUrl);
+        
+        // Fetch using the signed URL
+        response = await fetch(secureUrl, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Cloudinary signed URL fetch failed: ${response.status} ${response.statusText}`);
+        }
+        
+        console.log('✅ Cloudinary document fetched via signed URL');
+      } catch (cloudError) {
+        console.log('⚠️ Signed URL fetch failed:', cloudError.message);
+        console.log('⚠️ Trying direct fetch...');
+        
+        // Fallback: try direct fetch
+        try {
+          response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': '*/*',
+              'Accept-Language': 'en-US,en;q=0.9'
+            },
+            redirect: 'follow'
+          });
+          
+          if (!response.ok) {
+            console.error('❌ Direct fetch failed:', response.status, response.statusText);
+            throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
+          }
+          
+          console.log('✅ Cloudinary document fetched directly');
+        } catch (directError) {
+          console.error('❌ All Cloudinary fetch attempts failed:', directError.message);
+          throw new Error(`Failed to fetch Cloudinary document: ${directError.message}`);
+        }
+      }
+    } else {
       // For local files, fetch directly
       console.log('📁 Local file detected');
       response = await fetch(url);
