@@ -1283,40 +1283,44 @@ export default function PropertiesPage() {
                           <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                             {unit.type} • {unit.sizeSqFt} sq ft • Floor {unit.floor || 'N/A'} • ${unit.rentAmount}/month
                           </div>
-                          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                            {unit.bedrooms > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Bed size={12} />
-                                <span className="font-medium">{unit.bedrooms}</span>
-                                <span>Bed</span>
-                              </div>
-                            )}
-                            {unit.bathrooms > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Bath size={12} />
-                                <span className="font-medium">{unit.bathrooms}</span>
-                                <span>Bath</span>
-                              </div>
-                            )}
-                            {unit.parking > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Car size={12} />
-                                <span className="font-medium">{unit.parking}</span>
-                                <span>Parking</span>
-                              </div>
-                            )}
-                            {unit.electricityMeterNo && (
-                              <div className="flex items-center gap-1">
-                                <Zap size={12} />
-                                <span className="font-medium">{unit.electricityMeterNo}</span>
-                              </div>
-                            )}
-                            {unit.waterMeterNo && (
-                              <div className="flex items-center gap-1">
-                                <Droplets size={12} />
-                                <span className="font-medium">{unit.waterMeterNo}</span>
-                              </div>
-                            )}
+                          <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                            {/* Bed/Bath/Parking row */}
+                            <div className="flex items-center gap-6">
+                              {unit.bedrooms > 0 && (
+                                <div className="flex flex-col items-center">
+                                  <span className="font-medium text-sm">{unit.bedrooms}</span>
+                                  <span className="text-xs">Bed</span>
+                                </div>
+                              )}
+                              {unit.bathrooms > 0 && (
+                                <div className="flex flex-col items-center">
+                                  <span className="font-medium text-sm">{unit.bathrooms}</span>
+                                  <span className="text-xs">Bath</span>
+                                </div>
+                              )}
+                              {unit.parking > 0 && (
+                                <div className="flex flex-col items-center">
+                                  <span className="font-medium text-sm">{unit.parking}</span>
+                                  <span className="text-xs">Parking</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Utility meters row */}
+                            <div className="flex items-center gap-4">
+                              {unit.electricityMeterNo && (
+                                <div className="flex items-center gap-1">
+                                  <Zap size={12} />
+                                  <span className="font-medium">{unit.electricityMeterNo}</span>
+                                </div>
+                              )}
+                              {unit.waterMeterNo && (
+                                <div className="flex items-center gap-1">
+                                  <Droplets size={12} />
+                                  <span className="font-medium">{unit.waterMeterNo}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
