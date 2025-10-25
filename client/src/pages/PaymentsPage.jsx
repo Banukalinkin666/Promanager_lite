@@ -158,8 +158,13 @@ export default function PaymentsPage() {
     }
 
     // Status filter
-    if (statusFilter !== 'ALL' && payment.status !== statusFilter) {
-      return false;
+    if (statusFilter !== 'ALL') {
+      const rentStatus = calculateRentStatus(payment);
+      if (statusFilter === 'DUE' && rentStatus.status !== 'Due') {
+        return false;
+      } else if (statusFilter !== 'DUE' && payment.status !== statusFilter) {
+        return false;
+      }
     }
 
     // Method filter
@@ -417,6 +422,7 @@ export default function PaymentsPage() {
               <option value="ALL">All Statuses</option>
               <option value="SUCCEEDED">Paid</option>
               <option value="PENDING">Pending</option>
+              <option value="DUE">Due</option>
               <option value="FAILED">Failed</option>
             </select>
           </div>
