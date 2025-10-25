@@ -169,15 +169,60 @@ router.post('/proxy-document', authenticate, async (req, res) => {
     }
     
     console.log('📥 Fetching document from:', url);
+    console.log('👤 User:', req.user?.id, 'Role:', req.user?.role);
     
-    // Fetch the document from Cloudinary or local storage
-    const response = await fetch(url);
+    // Check if it's a Cloudinary URL
+    const isCloudinary = url.includes('res.cloudinary.com') || url.includes('cloudinary.com');
     
-    if (!response.ok) {
-      console.error('❌ Failed to fetch document:', response.status, response.statusText);
-      return res.status(response.status).json({ 
-        message: `Failed to fetch document: ${response.statusText}` 
-      });
+    let response;
+    
+    if (isCloudinary) {
+      // For Cloudinary, try to fetch without authentication first
+      // Cloudinary URLs are usually public
+      console.log('☁️ Cloudinary URL detected');
+      
+      try {
+        // Try direct access without authentication
+        response = await fetch(url, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Cloudinary fetch failed: ${response.status}`);
+        }
+        
+        console.log('✅ Cloudinary document fetched successfully');
+      } catch (cloudError) {
+        console.log('⚠️ Direct Cloudinary fetch failed, trying with headers...');
+        
+        // If direct access fails, try with additional headers
+        response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9'
+          },
+          redirect: 'follow'
+        });
+        
+        if (!response.ok) {
+          console.error('❌ Cloudinary fetch failed:', response.status, response.statusText);
+          throw new Error(`Failed to fetch document: ${response.statusText}`);
+        }
+      }
+    } else {
+      // For local files, fetch directly
+      console.log('📁 Local file detected');
+      response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error('❌ Failed to fetch document:', response.status, response.statusText);
+        return res.status(response.status).json({ 
+          message: `Failed to fetch document: ${response.statusText}` 
+        });
+      }
     }
     
     // Get the content type from the original response
@@ -186,6 +231,7 @@ router.post('/proxy-document', authenticate, async (req, res) => {
     // Set appropriate headers
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${url.split('/').pop()}"`);
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
     
     // Stream the response
     const buffer = await response.arrayBuffer();
@@ -195,6 +241,7 @@ router.post('/proxy-document', authenticate, async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error proxying document:', error);
+    console.error('Error details:', error.message);
     res.status(500).json({ message: 'Error fetching document', error: error.message });
   }
 });
