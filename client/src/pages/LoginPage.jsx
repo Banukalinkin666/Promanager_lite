@@ -31,23 +31,13 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo Section */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center gap-3 mb-4">
-            {/* House Icon with Bar Chart */}
-            <div className="w-8 h-8 relative">
-              {/* House roof (triangle) */}
-              <svg className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-4" viewBox="0 0 16 8">
-                <polygon points="8,0 0,8 16,8" fill="currentColor" />
-              </svg>
-              {/* House body */}
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-6 h-5 border-2 border-current rounded-sm">
-                {/* Bar chart inside house */}
-                <div className="absolute bottom-1 left-1 w-1 h-2 bg-current"></div>
-                <div className="absolute bottom-1 left-2.5 w-1 h-3 bg-current"></div>
-                <div className="absolute bottom-1 left-4 w-1 h-4 bg-current"></div>
-              </div>
-            </div>
-            {/* SPM Text */}
-            <span className="text-gray-900 dark:text-white font-bold text-xl">SPM</span>
+          <div className="inline-flex items-center justify-center mb-4">
+            <img 
+              src="/spm-logo-white.png" 
+              alt="Smart Property Manager" 
+              className="h-12 w-auto max-w-[200px] dark:invert dark:brightness-0 dark:contrast-200"
+              style={{ objectFit: 'contain' }}
+            />
           </div>
         </div>
 
