@@ -205,6 +205,45 @@ app.get('/api/create-test-user', async (_req, res) => {
   }
 });
 
+// Clear Properties, Units, Tenants, and Payments for fresh start
+app.get('/api/clear-property-data', async (_req, res) => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    const Property = (await import('./models/Property.js')).default;
+    const Payment = (await import('./models/Payment.js')).default;
+    const Invoice = (await import('./models/Invoice.js')).default;
+    const Lease = (await import('./models/Lease.js')).default;
+    
+    // Delete only TENANT users (keep ADMIN and OWNER)
+    const tenantResult = await User.deleteMany({ role: 'TENANT' });
+    
+    // Clear all properties (this will also clear all units)
+    const propertyResult = await Property.deleteMany({});
+    
+    // Clear all payments
+    const paymentResult = await Payment.deleteMany({});
+    
+    // Clear all invoices
+    const invoiceResult = await Invoice.deleteMany({});
+    
+    // Clear all leases
+    const leaseResult = await Lease.deleteMany({});
+    
+    res.json({ 
+      message: 'Properties, Units, Tenants, and Payments cleared successfully. Fresh start ready!',
+      deleted: {
+        tenants: tenantResult.deletedCount,
+        properties: propertyResult.deletedCount,
+        payments: paymentResult.deletedCount,
+        invoices: invoiceResult.deletedCount,
+        leases: leaseResult.deletedCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Clear all data for fresh start
 app.get('/api/clear-all-data', async (_req, res) => {
   try {
