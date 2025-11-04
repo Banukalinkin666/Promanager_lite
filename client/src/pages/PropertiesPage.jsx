@@ -671,6 +671,21 @@ export default function PropertiesPage() {
       return;
     }
     
+    // Populate form with current unit data
+    setUnitForm({
+      unit: unit.unit || '',
+      type: unit.type || 'APARTMENT',
+      sizeSqFt: unit.sizeSqFt || '',
+      floor: unit.floor || '',
+      bedrooms: unit.bedrooms || '',
+      bathrooms: unit.bathrooms || '',
+      parking: unit.parking || '',
+      rentAmount: unit.rentAmount || '',
+      electricityMeterNo: unit.electricityMeterNo || '',
+      waterMeterNo: unit.waterMeterNo || '',
+      amenities: unit.amenities || []
+    });
+    
     setEditingUnit(unit);
     setShowUnitForm(true);
   };
