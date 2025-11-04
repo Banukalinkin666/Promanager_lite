@@ -81,8 +81,8 @@ export default function SettingsPage() {
     
     const matchesRole = roleFilter === 'ALL' || userItem.role === roleFilter;
     const matchesStatus = statusFilter === 'ALL' || 
-      (statusFilter === 'ACTIVE' && userItem.isActive) ||
-      (statusFilter === 'INACTIVE' && !userItem.isActive);
+      (statusFilter === 'ACTIVE' && userItem.isActive && userItem.status !== 'BLACKLISTED') ||
+      (statusFilter === 'BLOCKED' && userItem.status === 'BLACKLISTED');
     
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -443,7 +443,7 @@ export default function SettingsPage() {
                     >
                       <option value="ALL">All Status</option>
                       <option value="ACTIVE">Active</option>
-                      <option value="INACTIVE">Inactive</option>
+                      <option value="BLOCKED">Blocked</option>
                     </select>
                   </div>
 
