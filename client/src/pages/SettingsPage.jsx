@@ -31,6 +31,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showToast, setShowToast] = useState({ show: false, message: '', type: 'success' });
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showUnblockModal, setShowUnblockModal] = useState(false);
   const [blockReason, setBlockReason] = useState('');
 
   // Set active tab based on URL
@@ -126,23 +127,33 @@ export default function SettingsPage() {
     }
   };
   
-  const handleUnblockUser = async (userItem) => {
-    if (!window.confirm(`Are you sure you want to unblock ${userItem.firstName || ''} ${userItem.lastName || ''}?`)) {
-      return;
-    }
+  const handleUnblockUser = (userItem) => {
+    setSelectedUser(userItem);
+    setShowUnblockModal(true);
+  };
+
+  const confirmUnblockUser = async () => {
+    if (!selectedUser) return;
     
     try {
-      const response = await api.put(`/tenants/${userItem._id}/unblock`);
-      showToastMessage(response.data.message, 'success');
-      loadUsers();
+      setSaving(true);
+      const response = await api.put(`/tenants/${selectedUser._id}/unblock`);
+      showToastMessage(response.data.message || 'User unblocked successfully', 'success');
+      setShowUnblockModal(false);
+      setSelectedUser(null);
+      
+      // Reload users to show updated status (Blocked -> Active)
+      await loadUsers();
       
       // Dispatch event to notify other pages
       window.dispatchEvent(new CustomEvent('userStatusUpdated', { 
-        detail: { userId: userItem._id, newStatus: 'ACTIVE' } 
+        detail: { userId: selectedUser._id, newStatus: 'ACTIVE' } 
       }));
     } catch (error) {
       console.error('Error unblocking user:', error);
       showToastMessage(error.response?.data?.message || 'Error unblocking user', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -642,7 +653,11 @@ export default function SettingsPage() {
                       Block User
                     </h3>
                     <button
-                      onClick={() => setShowBlockModal(false)}
+                      onClick={() => {
+                        setShowBlockModal(false);
+                        setBlockReason('');
+                        setSelectedUser(null);
+                      }}
                       className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <X size={20} />
@@ -681,7 +696,66 @@ export default function SettingsPage() {
                       {saving ? 'Blocking...' : 'Block User'}
                     </button>
                     <button
-                      onClick={() => setShowBlockModal(false)}
+                      onClick={() => {
+                        setShowBlockModal(false);
+                        setBlockReason('');
+                        setSelectedUser(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Unblock User Confirmation Modal */}
+          {showUnblockModal && selectedUser && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <UserCheck className="text-green-500" size={20} />
+                      Unblock User
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setShowUnblockModal(false);
+                        setSelectedUser(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                      <p className="text-green-800 dark:text-green-200 text-sm">
+                        <strong>Confirm Unblock:</strong> Are you sure you want to unblock{' '}
+                        <strong>{selectedUser.firstName || ''} {selectedUser.lastName || ''}</strong>? 
+                        They will be able to access the system again after unblocking.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={confirmUnblockUser}
+                      disabled={saving}
+                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <UserCheck size={16} />
+                      {saving ? 'Unblocking...' : 'Unblock User'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowUnblockModal(false);
+                        setSelectedUser(null);
+                      }}
                       className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       Cancel
