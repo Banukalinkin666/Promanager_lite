@@ -215,6 +215,9 @@ export default function SettingsPage() {
       showToastMessage('Password reset successfully', 'success');
       setShowPasswordModal(false);
       setPasswordForm({ newPassword: '', confirmPassword: '' });
+      setSelectedUser(null);
+      setSearchTerm(''); // Clear search field
+      loadUsers(); // Reload users to show updated list
     } catch (error) {
       console.error('Error resetting password:', error);
       showToastMessage(`Error resetting password: ${error.response?.data?.message || error.message}`, 'error');
@@ -739,7 +742,11 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Reset Password</h3>
                 <button
-                  onClick={() => setShowPasswordModal(false)}
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setSelectedUser(null);
+                    setPasswordForm({ newPassword: '', confirmPassword: '' });
+                  }}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <X size={20} />
@@ -800,7 +807,11 @@ export default function SettingsPage() {
                   {saving ? 'Resetting...' : 'Reset Password'}
                 </button>
                 <button
-                  onClick={() => setShowPasswordModal(false)}
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setSelectedUser(null);
+                    setPasswordForm({ newPassword: '', confirmPassword: '' });
+                  }}
                   className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancel
