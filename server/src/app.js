@@ -28,6 +28,8 @@ app.use(cors({
     process.env.CORS_ORIGIN || process.env.CLIENT_URL,
     'https://spm-frontend-gvcu.onrender.com',
     'https://spm-frontend.onrender.com',
+    'https://spm-frontend-dfju.onrender.com',
+    /^https:\/\/spm-frontend-.*\.onrender\.com$/,
     'http://localhost:3000',
     'http://localhost:5173'
   ].filter(Boolean),
