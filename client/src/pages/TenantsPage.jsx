@@ -210,6 +210,14 @@ export default function TenantsPage() {
     setShowDetailsModal(true);
   };
 
+  // Helper function to get display text for status
+  const getStatusDisplayText = (status) => {
+    if (status === 'BLACKLISTED') {
+      return 'Blocked';
+    }
+    return status || 'ACTIVE';
+  };
+
   // Filter tenants based on search query
   const filteredTenants = tenants.filter(tenant => {
     if (!searchQuery.trim()) return true;
@@ -669,7 +677,7 @@ export default function TenantsPage() {
                         tenant.status === 'INACTIVE' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300' :
                         'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300'
                       }`}>
-                        {tenant.status || 'ACTIVE'}
+                        {getStatusDisplayText(tenant.status)}
                       </span>
                     </td>
                     <td className="p-3">
@@ -740,11 +748,11 @@ export default function TenantsPage() {
                     <div><span className="font-medium">Nationality:</span> {selectedTenant.nationality || 'N/A'}</div>
                     <div><span className="font-medium">Status:</span> 
                       <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                        selectedTenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                        selectedTenant.status === 'INACTIVE' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        selectedTenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                        selectedTenant.status === 'INACTIVE' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
+                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
                       }`}>
-                        {selectedTenant.status || 'ACTIVE'}
+                        {getStatusDisplayText(selectedTenant.status)}
                       </span>
                     </div>
                   </div>
