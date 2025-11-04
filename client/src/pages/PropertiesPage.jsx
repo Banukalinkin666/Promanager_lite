@@ -673,7 +673,7 @@ export default function PropertiesPage() {
     
     // Populate form with current unit data
     setUnitForm({
-      unit: unit.unit || '',
+      unit: unit.name || '',
       type: unit.type || 'APARTMENT',
       sizeSqFt: unit.sizeSqFt || '',
       floor: unit.floor || '',
