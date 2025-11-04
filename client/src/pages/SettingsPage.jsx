@@ -4,8 +4,8 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   Settings, Users, Shield, User, Mail, Phone, Calendar,
-  Search, Edit, Key, ToggleLeft, ToggleRight, 
-  UserCheck, UserX, Save, X, Eye, EyeOff, AlertTriangle,
+  Search, Key, ToggleLeft, ToggleRight, 
+  UserCheck, UserX, X, Eye, EyeOff, AlertTriangle,
   Palette, Sun, Moon, Monitor
 } from 'lucide-react';
 import api from '../lib/api.js';
@@ -20,17 +20,8 @@ export default function SettingsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [editForm, setEditForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    role: '',
-    isActive: true
-  });
   const [passwordForm, setPasswordForm] = useState({
     newPassword: '',
     confirmPassword: ''
@@ -94,19 +85,6 @@ export default function SettingsPage() {
     
     return matchesSearch && matchesRole && matchesStatus;
   });
-
-  const handleEditUser = (userItem) => {
-    setSelectedUser(userItem);
-    setEditForm({
-      firstName: userItem.firstName || '',
-      lastName: userItem.lastName || '',
-      email: userItem.email || '',
-      phone: userItem.phone || '',
-      role: userItem.role || '',
-      isActive: userItem.isActive !== undefined ? userItem.isActive : true
-    });
-    setShowEditModal(true);
-  };
 
   const handleResetPassword = (userItem) => {
     setSelectedUser(userItem);
@@ -178,21 +156,6 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error unblocking user:', error);
       showToastMessage(error.response?.data?.message || 'Error unblocking user', 'error');
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    try {
-      setSaving(true);
-      await api.put(`/tenants/${selectedUser._id}/credentials`, editForm);
-      showToastMessage('User updated successfully', 'success');
-      setShowEditModal(false);
-      loadUsers();
-    } catch (error) {
-      console.error('Error updating user:', error);
-      showToastMessage(`Error updating user: ${error.response?.data?.message || error.message}`, 'error');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -581,15 +544,6 @@ export default function SettingsPage() {
                               )
                             )}
                         
-                        {/* Edit Button */}
-                        <button
-                          onClick={() => handleEditUser(userItem)}
-                          className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-1"
-                        >
-                          <Edit size={14} />
-                          Edit
-                        </button>
-                        
                         {/* Reset Password Button */}
                         <button
                           onClick={() => handleResetPassword(userItem)}
@@ -618,121 +572,6 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
-
-      {/* Edit User Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit User</h3>
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.firstName}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.lastName}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={editForm.phone}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Role
-                  </label>
-                  <select
-                    value={editForm.role}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="ADMIN">Admin</option>
-                    <option value="OWNER">Owner</option>
-                    <option value="TENANT">Tenant</option>
-                  </select>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={editForm.isActive}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, isActive: e.target.checked }))}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Active User
-                  </label>
-                </div>
-              </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={saving}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Save size={16} />
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Reset Password Modal */}
       {showPasswordModal && (
