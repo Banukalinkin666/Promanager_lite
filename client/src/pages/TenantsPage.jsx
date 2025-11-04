@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { 
   Plus, Edit, Trash2, Eye, User, Mail, Phone, 
-  MapPin, Briefcase, Calendar, FileText, AlertCircle
+  MapPin, Briefcase, Calendar, FileText, AlertCircle, Search
 } from 'lucide-react';
 import api from '../lib/api.js';
 import { useToast } from '../components/ToastContainer.jsx';
@@ -19,6 +19,7 @@ export default function TenantsPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', data: null });
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     // General Information
@@ -208,6 +209,30 @@ export default function TenantsPage() {
     setSelectedTenant(tenant);
     setShowDetailsModal(true);
   };
+
+  // Filter tenants based on search query
+  const filteredTenants = tenants.filter(tenant => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const fullName = `${tenant.firstName || ''} ${tenant.lastName || ''} ${tenant.middleName || ''}`.toLowerCase().trim();
+    const name = tenant.name?.toLowerCase() || '';
+    const email = (tenant.primaryEmail || tenant.email || '').toLowerCase();
+    const phone = (tenant.phone || tenant.secondaryPhone || '').toLowerCase();
+    const nic = (tenant.nic || '').toLowerCase();
+    const company = (tenant.employment?.company || '').toLowerCase();
+    const city = (tenant.address?.city || '').toLowerCase();
+    
+    return (
+      fullName.includes(query) ||
+      name.includes(query) ||
+      email.includes(query) ||
+      phone.includes(query) ||
+      nic.includes(query) ||
+      company.includes(query) ||
+      city.includes(query)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -580,26 +605,46 @@ export default function TenantsPage() {
 
       {/* Tenants List */}
       <div className="card">
-        <h2 className="text-xl font-semibold mb-4">Registered Tenants</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Registered Tenants</h2>
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search tenants by name, email, phone, NIC, company, or city..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+        
         {loading ? (
           <div className="text-center py-8">Loading tenants...</div>
-        ) : tenants.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">No tenants found</div>
+        ) : filteredTenants.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            {searchQuery ? `No tenants found matching "${searchQuery}"` : 'No tenants found'}
+          </div>
         ) : (
           <div className="overflow-x-auto">
+            {searchQuery && (
+              <div className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                Showing {filteredTenants.length} of {tenants.length} tenant{tenants.length !== 1 ? 's' : ''}
+              </div>
+            )}
             <table className="w-full">
               <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3">Name</th>
-                  <th className="text-left p-3">Email</th>
-                  <th className="text-left p-3">Phone</th>
-                  <th className="text-left p-3">NIC</th>
-                  <th className="text-left p-3">Status</th>
-                  <th className="text-left p-3">Actions</th>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">Name</th>
+                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">Email</th>
+                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">Phone</th>
+                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">NIC</th>
+                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">Status</th>
+                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {tenants.map((tenant) => (
+                {filteredTenants.map((tenant) => (
                   <tr key={tenant._id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="p-3">
                       <div className="font-medium">
@@ -620,9 +665,9 @@ export default function TenantsPage() {
                     </td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded-full text-xs ${
-                        tenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                        tenant.status === 'INACTIVE' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        tenant.status === 'ACTIVE' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300' :
+                        tenant.status === 'INACTIVE' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300' :
+                        'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300'
                       }`}>
                         {tenant.status || 'ACTIVE'}
                       </span>
