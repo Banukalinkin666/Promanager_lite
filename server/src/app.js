@@ -305,6 +305,34 @@ app.get('/api/count-users', async (_req, res) => {
   }
 });
 
+// Check data counts (for verification)
+app.get('/api/data-counts', async (_req, res) => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    const Property = (await import('./models/Property.js')).default;
+    const Payment = (await import('./models/Payment.js')).default;
+    const Invoice = (await import('./models/Invoice.js')).default;
+    const Lease = (await import('./models/Lease.js')).default;
+    
+    const counts = {
+      users: {
+        total: await User.countDocuments({}),
+        admins: await User.countDocuments({ role: 'ADMIN' }),
+        owners: await User.countDocuments({ role: 'OWNER' }),
+        tenants: await User.countDocuments({ role: 'TENANT' })
+      },
+      properties: await Property.countDocuments({}),
+      payments: await Payment.countDocuments({}),
+      invoices: await Invoice.countDocuments({}),
+      leases: await Lease.countDocuments({})
+    };
+    
+    res.json(counts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Remove all tenants (keep only admin)
 app.get('/api/remove-all-tenants', async (_req, res) => {
   try {
