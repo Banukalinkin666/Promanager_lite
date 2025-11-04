@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   Settings, Users, Shield, User, Mail, Phone, Calendar,
-  Search, Key, ToggleLeft, ToggleRight, 
+  Search, Key, ToggleLeft, 
   UserCheck, UserX, X, Eye, EyeOff, AlertTriangle,
   Palette, Sun, Moon, Monitor
 } from 'lucide-react';
@@ -92,22 +92,6 @@ export default function SettingsPage() {
     setShowPasswordModal(true);
   };
 
-  const handleToggleStatus = async (userItem) => {
-    try {
-      const response = await api.put(`/tenants/${userItem._id}/toggle-status`);
-      showToastMessage(response.data.message, 'success');
-      loadUsers();
-      
-      // Dispatch event to notify other pages (like Tenant Management)
-      window.dispatchEvent(new CustomEvent('userStatusUpdated', { 
-        detail: { userId: userItem._id, newStatus: response.data.status } 
-      }));
-    } catch (error) {
-      console.error('Error toggling user status:', error);
-      showToastMessage('Error updating user status', 'error');
-    }
-  };
-
   const handleBlockUser = (userItem) => {
     setSelectedUser(userItem);
     setShowBlockModal(true);
@@ -122,10 +106,13 @@ export default function SettingsPage() {
       const response = await api.put(`/tenants/${selectedUser._id}/block`, {
         blockReason: blockReason
       });
-      showToastMessage(response.data.message, 'success');
+      showToastMessage(response.data.message || 'User blocked successfully', 'success');
       setShowBlockModal(false);
       setBlockReason('');
-      loadUsers();
+      setSelectedUser(null);
+      
+      // Reload users to show updated status (Active -> Blocked)
+      await loadUsers();
       
       // Dispatch event to notify other pages
       window.dispatchEvent(new CustomEvent('userStatusUpdated', { 
@@ -505,23 +492,6 @@ export default function SettingsPage() {
                               {getStatusIcon(userItem)}
                               {getStatusText(userItem)}
                             </span>
-                            
-                            {/* Status Toggle */}
-                            {userItem.status !== 'BLACKLISTED' && (
-                              <button
-                                onClick={() => handleToggleStatus(userItem)}
-                                disabled={userItem._id === user.id}
-                                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                                  userItem.isActive
-                                    ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
-                                    : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
-                                } ${userItem._id === user.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title={userItem._id === user.id ? 'Cannot deactivate your own account' : ''}
-                              >
-                                {userItem.isActive ? <ToggleLeft size={14} /> : <UserCheck size={14} />}
-                                {userItem.isActive ? 'Deactivate' : 'Activate'}
-                              </button>
-                            )}
                             
                             {/* Block/Unblock User Button */}
                             {userItem._id !== user.id && (
