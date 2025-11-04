@@ -1,4 +1,21 @@
 services:
+  # MongoDB Database Service (Private Service using Docker)
+  # Render doesn't offer managed MongoDB, so we deploy it as a private service
+  - type: psvc
+    name: spm-mongodb
+    plan: starter
+    env: docker
+    dockerfilePath: ./server/Dockerfile.mongo
+    dockerContext: .
+    # Add persistent disk for MongoDB data
+    disks:
+      - name: mongodb-data
+        mountPath: /data/db
+        sizeGB: 10
+    envVars:
+      - key: MONGO_INITDB_DATABASE
+        value: smart_property_manager
+
   # Backend Service
   - type: web
     name: spm-backend
@@ -6,6 +23,11 @@ services:
     plan: starter
     buildCommand: cd server && npm install
     startCommand: cd server && npm start
+    # Add persistent disk for file storage (requires organization plan)
+    disks:
+      - name: uploads-disk
+        mountPath: /app/uploads
+        sizeGB: 10
     envVars:
       - key: NODE_ENV
         value: production
@@ -13,8 +35,10 @@ services:
         value: 10000
       - key: JWT_SECRET
         generateValue: true
+      # MongoDB connection string - use internal Render service name
+      # Format: mongodb://spm-mongodb:27017/smart_property_manager
       - key: MONGO_URI
-        sync: false
+        value: mongodb://spm-mongodb:27017/smart_property_manager
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -23,6 +47,12 @@ services:
         value: "true"
       - key: AUTO_INVOICES_CRON_SCHEDULE
         value: "0 0 1 * *"
+      # Disable Cloudinary - using Render persistent disk storage
+      - key: USE_CLOUD_STORAGE
+        value: "false"
+      # Base URL for file serving (will be set to your Render backend URL)
+      - key: BASE_URL
+        sync: false
 
   # Frontend Service
   - type: web

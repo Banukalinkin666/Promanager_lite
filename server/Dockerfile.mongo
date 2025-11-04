@@ -1,0 +1,11 @@
+FROM mongo:7
+
+# MongoDB will store data in /data/db (mounted as persistent disk)
+# This is the default MongoDB data directory
+
+# Expose MongoDB port
+EXPOSE 27017
+
+# Use default MongoDB entrypoint
+CMD ["mongod", "--bind_ip_all"]
+
