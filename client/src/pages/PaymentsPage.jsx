@@ -206,10 +206,33 @@ export default function PaymentsPage() {
     setCurrentPage(1);
   }, [searchTerm, tenantFilter, propertyFilter, unitFilter, statusFilter, methodFilter]);
 
-  const totalAmount = filteredPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const totalAmount = filteredPayments.reduce((sum, payment) => {
+    const originalAmount = payment.metadata?.originalAmount ?? 0;
+    const amount = payment.amount ?? 0;
+    return sum + (originalAmount || amount || 0);
+  }, 0);
+
   const paidPayments = filteredPayments.filter(p => calculateRentStatus(p).status === 'Paid');
   const pendingPayments = filteredPayments.filter(p => calculateRentStatus(p).status === 'Pending');
   const duePayments = filteredPayments.filter(p => calculateRentStatus(p).status === 'Due');
+
+  const sumPayments = (payments, useOriginal = false) => {
+    return payments.reduce((sum, payment) => {
+      const originalAmount = payment.metadata?.originalAmount ?? 0;
+      const amount = payment.amount ?? 0;
+      if (useOriginal) {
+        return sum + (originalAmount || amount || 0);
+      }
+      return sum + (amount || originalAmount || 0);
+    }, 0);
+  };
+
+  const paidAmount = sumPayments(paidPayments, false);
+  const pendingAmount = sumPayments(pendingPayments, true);
+  const dueAmount = sumPayments(duePayments, true);
+
+  const formatCurrency = (value) => `$${value.toFixed(2)}`;
+  const formatCountLabel = (count) => `${count} payment${count === 1 ? '' : 's'}`;
 
   const handleUpdatePayment = (payment) => {
     setSelectedPayment(payment);
@@ -300,7 +323,8 @@ export default function PaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Amount</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">${totalAmount.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(totalAmount)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Across {formatCountLabel(filteredPayments.length)}</p>
             </div>
             <DollarSign size={24} className="text-green-600" />
           </div>
@@ -309,7 +333,8 @@ export default function PaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Paid</p>
-              <p className="text-2xl font-bold text-green-600">{paidPayments.length}</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(paidAmount)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatCountLabel(paidPayments.length)}</p>
             </div>
             <CheckCircle size={24} className="text-green-600" />
           </div>
@@ -318,7 +343,8 @@ export default function PaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
-              <p className="text-2xl font-bold text-yellow-600">{pendingPayments.length}</p>
+              <p className="text-2xl font-bold text-yellow-600">{formatCurrency(pendingAmount)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatCountLabel(pendingPayments.length)}</p>
             </div>
             <Clock size={24} className="text-yellow-600" />
           </div>
@@ -327,7 +353,8 @@ export default function PaymentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Due</p>
-              <p className="text-2xl font-bold text-red-600">{duePayments.length}</p>
+              <p className="text-2xl font-bold text-red-600">{formatCurrency(dueAmount)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatCountLabel(duePayments.length)}</p>
             </div>
             <AlertCircle size={24} className="text-red-600" />
           </div>
