@@ -474,7 +474,7 @@ export default function PaymentsPage() {
               return (
                 <div key={payment._id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                       {/* Amount & Status */}
                       <div className="flex items-center gap-2">
                         <div className="text-lg font-bold text-gray-900 dark:text-white">
@@ -526,12 +526,6 @@ export default function PaymentsPage() {
                             {payment.metadata?.month || 'Payment'}
                           </div>
                         </div>
-                      </div>
-                      
-                      {/* Method */}
-                      <div className="flex items-center gap-2">
-                        {getMethodIcon(payment.method)}
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{payment.method}</span>
                       </div>
                     </div>
                     
