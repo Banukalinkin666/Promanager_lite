@@ -931,26 +931,44 @@ export default function PropertiesPage() {
   // Calculate rent statistics based on actual payments
   const calculateRentStats = (property) => {
     if (!property || !property.units) return { totalRent: 0, collectedRent: 0, pendingRent: 0 };
-    
-    // Total rent should only include occupied units (active leases)
-    const totalRent = property.units
-      .filter(unit => unit.status === 'OCCUPIED')
-      .reduce((sum, unit) => sum + (unit.rentAmount || 0), 0);
-    
-    // Get actual collected and pending rent from payments state
-    // This will be populated by loadPropertyPayments()
-    const propertyPayments = allPayments.filter(payment => 
-      payment.metadata?.propertyId === property._id
+
+    // Consider only occupied units (active leases)
+    const activeUnitIds = new Set(
+      property.units
+        .filter(unit => unit.status === 'OCCUPIED')
+        .map(unit => unit._id?.toString())
     );
-    
+
+    if (activeUnitIds.size === 0) {
+      return { totalRent: 0, collectedRent: 0, pendingRent: 0 };
+    }
+
+    // Filter payments for this property and the currently occupied units
+    const propertyPayments = allPayments.filter(payment => {
+      const paymentPropertyId = payment.metadata?.propertyId?.toString();
+      const paymentUnitId = payment.metadata?.unitId?.toString();
+      const isRentPayment = payment.metadata?.type === 'rent_payment';
+
+      return (
+        isRentPayment &&
+        paymentPropertyId === property._id?.toString() &&
+        (paymentUnitId ? activeUnitIds.has(paymentUnitId) : true)
+      );
+    });
+
+    const totalRent = propertyPayments.reduce((sum, payment) => {
+      const originalAmount = payment.metadata?.originalAmount ?? payment.amount ?? 0;
+      return sum + originalAmount;
+    }, 0);
+
     const collectedRent = propertyPayments
-      .filter(p => p.status === 'SUCCEEDED')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
-    
+      .filter(payment => payment.status === 'SUCCEEDED')
+      .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+
     const pendingRent = propertyPayments
-      .filter(p => p.status === 'PENDING')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
-    
+      .filter(payment => payment.status === 'PENDING')
+      .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+
     return { totalRent, collectedRent, pendingRent };
   };
 
