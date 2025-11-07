@@ -551,8 +551,8 @@ export default function PaymentsPage() {
                     </div>
                   )}
 
-                  {/* Payment Method */}
-                  {payment.method && (
+                  {/* Payment Method (show only when payment is completed) */}
+                  {payment.status === 'SUCCEEDED' && payment.method && (
                     <div className="mt-1 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
                       {getMethodIcon(payment.method)}
                       <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">
