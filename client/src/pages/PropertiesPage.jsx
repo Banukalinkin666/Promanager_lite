@@ -944,14 +944,24 @@ export default function PropertiesPage() {
     }
 
     // Filter payments for this property and the currently occupied units
+    const propertyIdString = property._id?.toString();
+
     const propertyPayments = allPayments.filter(payment => {
-      const paymentPropertyId = payment.metadata?.propertyId?.toString();
-      const paymentUnitId = payment.metadata?.unitId?.toString();
+      const rawPropertyId = payment.metadata?.propertyId;
+      const paymentPropertyId = typeof rawPropertyId === 'string'
+        ? rawPropertyId
+        : rawPropertyId?._id?.toString?.() ?? rawPropertyId?.toString?.();
+
+      const rawUnitId = payment.metadata?.unitId;
+      const paymentUnitId = typeof rawUnitId === 'string'
+        ? rawUnitId
+        : rawUnitId?._id?.toString?.() ?? rawUnitId?.toString?.();
+
       const isRentPayment = payment.metadata?.type === 'rent_payment';
 
       return (
         isRentPayment &&
-        paymentPropertyId === property._id?.toString() &&
+        paymentPropertyId === propertyIdString &&
         (paymentUnitId ? activeUnitIds.has(paymentUnitId) : true)
       );
     });
