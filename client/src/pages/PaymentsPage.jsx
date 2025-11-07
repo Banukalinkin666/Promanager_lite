@@ -550,6 +550,17 @@ export default function PaymentsPage() {
                       {payment.description}
                     </div>
                   )}
+
+                  {/* Payment Method */}
+                  {payment.method && (
+                    <div className="mt-1 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                      {getMethodIcon(payment.method)}
+                      <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">
+                        Method:
+                      </span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{payment.method}</span>
+                    </div>
+                  )}
                   
                   {/* Notes */}
                   {payment.notes && (
