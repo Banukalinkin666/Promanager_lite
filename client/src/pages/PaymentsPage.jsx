@@ -474,7 +474,7 @@ export default function PaymentsPage() {
               return (
                 <div key={payment._id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
                       {/* Amount & Status */}
                       <div className="flex items-center gap-2">
                         <div className="text-lg font-bold text-gray-900 dark:text-white">
@@ -527,6 +527,23 @@ export default function PaymentsPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Payment Method (only for completed payments) */}
+                      <div className="flex items-center gap-2">
+                        {payment.status === 'SUCCEEDED' ? (
+                          <>
+                            {getMethodIcon(payment.method)}
+                            <div>
+                              <div className="font-medium text-gray-900 dark:text-white text-sm uppercase tracking-wide">
+                                {payment.method}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">Method</div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-xs text-gray-400 italic">—</div>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Actions */}
@@ -551,17 +568,6 @@ export default function PaymentsPage() {
                     </div>
                   )}
 
-                  {/* Payment Method (show only when payment is completed) */}
-                  {payment.status === 'SUCCEEDED' && payment.method && (
-                    <div className="mt-1 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                      {getMethodIcon(payment.method)}
-                      <span className="text-xs uppercase tracking-wide font-medium text-gray-500 dark:text-gray-400">
-                        Method:
-                      </span>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{payment.method}</span>
-                    </div>
-                  )}
-                  
                   {/* Notes */}
                   {payment.notes && (
                     <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
