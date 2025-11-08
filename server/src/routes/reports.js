@@ -2,7 +2,6 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import Property from '../models/Property.js';
 import Payment from '../models/Payment.js';
-import User from '../models/User.js';
 import Lease from '../models/Lease.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -842,8 +841,7 @@ router.get('/property-management', authenticate, async (req, res) => {
       reportType = 'income-expenses',
       propertyId, 
       year,
-      page = 1,
-      limit = 50
+      asOfDate
     } = req.query;
 
     let data = {};
@@ -853,7 +851,7 @@ router.get('/property-management', authenticate, async (req, res) => {
         data = await generateIncomeExpensesReport(propertyId, year);
         break;
       case 'occupancy-by-property':
-        data = await generateOccupancyByPropertyReport(propertyId, year, page, limit);
+        data = await generateOccupancyByPropertyReport(propertyId, asOfDate);
         break;
       default:
         return res.status(400).json({ 
@@ -1066,65 +1064,66 @@ async function generateIncomeExpensesReport(propertyId, year) {
 }
 
 // Occupancy Report By Property
-async function generateOccupancyByPropertyReport(propertyId, year, page, limit) {
-  const filter = {};
-  
-  if (propertyId) filter._id = propertyId;
+async function generateOccupancyByPropertyReport(propertyId, asOfDate) {
+  const propertyIdStrings = propertyId
+    ? propertyId
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id && id !== 'ALL')
+    : [];
 
-  const skip = (parseInt(page) - 1) * parseInt(limit);
+  let propertyObjectIds = [];
+  try {
+    propertyObjectIds = propertyIdStrings.map((id) => new mongoose.Types.ObjectId(id));
+  } catch (error) {
+    throw new Error('Invalid property identifier provided');
+  }
 
-  // Get properties with occupancy data
-  const properties = await Property.find(filter)
-    .populate('owner', 'name email')
-    .sort({ title: 1 })
-    .skip(skip)
-    .limit(parseInt(limit));
+  const propertyQuery = propertyObjectIds.length ? { _id: { $in: propertyObjectIds } } : {};
+  const properties = await Property.find(propertyQuery).sort({ title: 1 }).lean();
 
-  const totalCount = await Property.countDocuments(filter);
+  const effectiveAsOfDate = asOfDate ? new Date(asOfDate) : new Date();
 
-  // Calculate occupancy statistics for each property
-  const propertiesWithStats = await Promise.all(properties.map(async (property) => {
-    const totalUnits = property.units.length;
-    const occupiedUnits = property.units.filter(unit => unit.status === 'OCCUPIED').length;
-    const vacantUnits = property.units.filter(unit => unit.status === 'AVAILABLE').length;
-    const maintenanceUnits = property.units.filter(unit => unit.status === 'MAINTENANCE').length;
-    
+  const totals = {
+    totalUnits: 0,
+    occupiedUnits: 0,
+    maintenanceUnits: 0,
+    vacantUnits: 0
+  };
+
+  const propertiesWithStats = properties.map((property) => {
+    const units = property.units || [];
+    const totalUnits = units.length;
+    const occupiedUnits = units.filter((unit) => unit.status === 'OCCUPIED').length;
+    const maintenanceUnits = units.filter((unit) => unit.status === 'MAINTENANCE').length;
+    const vacantUnits = Math.max(totalUnits - occupiedUnits - maintenanceUnits, 0);
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
-    // Get current tenants
-    const currentTenants = await User.find({
-      _id: { $in: property.units.filter(unit => unit.tenant).map(unit => unit.tenant) }
-    }).select('firstName lastName email phone');
+    totals.totalUnits += totalUnits;
+    totals.occupiedUnits += occupiedUnits;
+    totals.maintenanceUnits += maintenanceUnits;
+    totals.vacantUnits += vacantUnits;
 
     return {
-      id: property._id,
-      title: property.title,
-      address: property.address,
-      owner: {
-        name: property.owner.name,
-        email: property.owner.email
-      },
+      propertyId: property._id,
+      propertyName: property.title,
       totalUnits,
       occupiedUnits,
-      vacantUnits,
       maintenanceUnits,
-      occupancyRate: Math.round(occupancyRate * 100) / 100,
-      currentTenants: currentTenants.map(tenant => ({
-        name: `${tenant.firstName} ${tenant.lastName}`,
-        email: tenant.email,
-        phone: tenant.phone
-      }))
+      vacantUnits,
+      occupancyRate: Number(occupancyRate.toFixed(3))
     };
-  }));
+  });
+
+  const totalsOccupancyRate =
+    totals.totalUnits > 0 ? Number(((totals.occupiedUnits / totals.totalUnits) * 100).toFixed(3)) : 0;
 
   return {
+    asOfDate: effectiveAsOfDate.toISOString(),
     properties: propertiesWithStats,
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(totalCount / parseInt(limit)),
-      totalCount,
-      hasNext: skip + properties.length < totalCount,
-      hasPrev: parseInt(page) > 1
+    totals: {
+      ...totals,
+      occupancyRate: totalsOccupancyRate
     }
   };
 }
@@ -1136,17 +1135,18 @@ router.get('/property-management/export/excel', authenticate, async (req, res) =
     const { 
       reportType = 'income-expenses',
       propertyId, 
-      year
+      year,
+      asOfDate
     } = req.query;
 
     let data = {};
 
     switch (reportType) {
       case 'income-expenses':
-        data = await generateIncomeExpensesReport(propertyId, year, 1, 10000);
+        data = await generateIncomeExpensesReport(propertyId, year);
         break;
       case 'occupancy-by-property':
-        data = await generateOccupancyByPropertyReport(propertyId, year, 1, 10000);
+        data = await generateOccupancyByPropertyReport(propertyId, asOfDate);
         break;
       default:
         return res.status(400).json({ 

@@ -65,6 +65,12 @@ const ReportsPage = () => {
     year: currentYear.toString()
   });
   const [incomeExpensesLoading, setIncomeExpensesLoading] = useState(false);
+  const [occupancyFilters, setOccupancyFilters] = useState({
+    propertyIds: ['ALL'],
+    asOfDate: new Date().toISOString().split('T')[0]
+  });
+  const [occupancyLoading, setOccupancyLoading] = useState(false);
+  const [occupancyData, setOccupancyData] = useState(null);
 
   // Fetch data based on active report
   const fetchReportData = async () => {
@@ -82,8 +88,16 @@ const ReportsPage = () => {
   useEffect(() => {
     if (activeReport === 'due-rent' || activeReport === 'uncollected-rent') return;
     if (activeReport === 'property-management' && filters.reportType === 'income-expenses') return;
+    if (activeReport === 'property-management' && filters.reportType === 'occupancy-by-property') return;
     fetchReportData();
   }, [activeReport, filters.page, filters.reportType]);
+
+  useEffect(() => {
+    if (activeReport === 'property-management' && filters.reportType === 'occupancy-by-property') {
+      fetchOccupancyReport();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeReport, filters.reportType]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
@@ -121,7 +135,19 @@ const ReportsPage = () => {
         propertyIds: ['ALL']
       }));
     }
-  }, [properties, dueRentFilters.propertyIds.length, uncollectedFilters.propertyIds.length, incomeExpensesFilters.propertyIds.length]);
+    if (properties.length > 0 && (!occupancyFilters.propertyIds.length || occupancyFilters.propertyIds[0] === 'ALL')) {
+      setOccupancyFilters(prev => ({
+        ...prev,
+        propertyIds: ['ALL']
+      }));
+    }
+  }, [
+    properties,
+    dueRentFilters.propertyIds.length,
+    uncollectedFilters.propertyIds.length,
+    incomeExpensesFilters.propertyIds.length,
+    occupancyFilters.propertyIds.length
+  ]);
 
   const handleSearch = () => {
     fetchReportData();
@@ -180,6 +206,14 @@ const ReportsPage = () => {
       [key]: value
     }));
     setData(null);
+  };
+
+  const handleOccupancyFilterChange = (key, value) => {
+    setOccupancyFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    setOccupancyData(null);
   };
 
   const fetchDueRentReport = async () => {
@@ -302,6 +336,10 @@ const ReportsPage = () => {
     const amount = Number(value) || 0;
     return amount.toFixed(3);
   };
+  const occupancyReportData =
+    activeReport === 'property-management' && filters.reportType === 'occupancy-by-property' ? occupancyData : null;
+  const occupancyProperties = occupancyReportData?.properties || [];
+  const formatPercentage = (value = 0) => `${(Number(value) || 0).toFixed(3)}%`;
 
   const fetchIncomeExpensesReport = async () => {
     if (!incomeExpensesFilters.year) {
@@ -338,6 +376,36 @@ const ReportsPage = () => {
     }
   };
 
+  const fetchOccupancyReport = async () => {
+    setOccupancyLoading(true);
+    try {
+      const params = {
+        reportType: 'occupancy-by-property',
+        propertyId:
+          !occupancyFilters.propertyIds.length || occupancyFilters.propertyIds[0] === 'ALL'
+            ? ''
+            : occupancyFilters.propertyIds.join(','),
+        asOfDate: occupancyFilters.asOfDate
+      };
+
+      const response = await api.get('/reports/property-management', { params });
+      if (response.data?.success) {
+        setOccupancyData(response.data.data || null);
+        const container = document.getElementById('occupancy-report-container');
+        if (container) {
+          container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else {
+        setOccupancyData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching occupancy report:', error);
+      setOccupancyData(null);
+    } finally {
+      setOccupancyLoading(false);
+    }
+  };
+
   const handleExport = async (format) => {
     if (activeReport === 'due-rent' && (!dueRentFilters.propertyIds.length || !dueRentFilters.year)) {
       console.warn('Property and year are required to export the due rent report');
@@ -356,7 +424,11 @@ const ReportsPage = () => {
           ? `/reports/due-rent/export/${format}`
           : activeReport === 'uncollected-rent'
             ? `/reports/uncollected-rent/export/${format}`
-            : `/reports/${activeReport}/export/${format}`;
+            : activeReport === 'property-management' && filters.reportType === 'income-expenses'
+              ? `/reports/property-management/export/${format}`
+              : activeReport === 'property-management' && filters.reportType === 'occupancy-by-property'
+                ? `/reports/property-management/export/${format}`
+                : `/reports/${activeReport}/export/${format}`;
 
       const params =
         activeReport === 'due-rent'
@@ -376,7 +448,25 @@ const ReportsPage = () => {
                     : uncollectedFilters.propertyIds.join(','),
                 year: uncollectedFilters.year
               }
-            : filters;
+          : activeReport === 'property-management' && filters.reportType === 'occupancy-by-property'
+            ? {
+                reportType: 'occupancy-by-property',
+                propertyId:
+                  !occupancyFilters.propertyIds.length || occupancyFilters.propertyIds[0] === 'ALL'
+                    ? ''
+                    : occupancyFilters.propertyIds.join(','),
+                asOfDate: occupancyFilters.asOfDate
+              }
+          : activeReport === 'property-management' && filters.reportType === 'income-expenses'
+            ? {
+                reportType: 'income-expenses',
+                propertyId:
+                  !incomeExpensesFilters.propertyIds.length || incomeExpensesFilters.propertyIds[0] === 'ALL'
+                    ? ''
+                    : incomeExpensesFilters.propertyIds.join(','),
+                year: incomeExpensesFilters.year
+              }
+          : filters;
 
       const response = await api.get(endpoint, {
         params,
@@ -441,7 +531,7 @@ const ReportsPage = () => {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">Generate and export professional reports</p>
             </div>
-            {activeReport !== 'due-rent' && activeReport !== 'uncollected-rent' && !(activeReport === 'property-management' && filters.reportType === 'income-expenses') && (
+            {activeReport !== 'due-rent' && activeReport !== 'uncollected-rent' && !(activeReport === 'property-management' && (filters.reportType === 'income-expenses' || filters.reportType === 'occupancy-by-property')) && (
               <div className="flex items-center space-x-3">
                 <input
                   type="text"
@@ -675,6 +765,69 @@ const ReportsPage = () => {
                     <>
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Generate Report
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeReport === 'property-management' && filters.reportType === 'occupancy-by-property' && (
+        <div id="occupancy-report-filters" className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="px-6 py-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="w-48 min-w-[200px]">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  As of Date
+                </label>
+                <input
+                  type="date"
+                  value={occupancyFilters.asOfDate}
+                  onChange={(e) => handleOccupancyFilterChange('asOfDate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex-1 min-w-[220px] max-w-[420px]">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Property
+                </label>
+                <select
+                  value={occupancyFilters.propertyIds[0] || 'ALL'}
+                  onChange={(e) => {
+                    if (e.target.value === 'ALL') {
+                      handleOccupancyFilterChange('propertyIds', ['ALL']);
+                    } else {
+                      handleOccupancyFilterChange('propertyIds', [e.target.value]);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="ALL">All Properties</option>
+                  {properties.map(property => (
+                    <option key={property._id} value={property._id}>
+                      {property.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex-shrink-0">
+                <button
+                  onClick={fetchOccupancyReport}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                >
+                  {occupancyLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Filtering...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Filter
                     </>
                   )}
                 </button>
@@ -1351,6 +1504,73 @@ const ReportsPage = () => {
                     {uncollectedFilters.propertyIds.length
                       ? 'No uncollected rent found for the selected criteria.'
                       : 'Select a property and year, then generate the report.'}
+                  </div>
+                )
+              ) : activeReport === 'property-management' && filters.reportType === 'occupancy-by-property' ? (
+                occupancyLoading ? (
+                  <div className="flex items-center justify-center py-12 text-gray-500 dark:text-gray-300">
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Generating occupancy report...
+                  </div>
+                ) : occupancyProperties.length ? (
+                  <div className="min-w-full">
+                    <div className="px-6 py-3 text-sm text-gray-600 dark:text-gray-300">
+                      As of {occupancyReportData?.asOfDate ? new Date(occupancyReportData.asOfDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </div>
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Property
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Total Units
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Units Occupied
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Units Under Maintenance
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Units Vacant
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Occupancy %
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {occupancyProperties.map((property) => (
+                          <tr key={`occupancy-property-${property.propertyId}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                              {property.propertyName}
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm text-gray-900 dark:text-white">
+                              {property.totalUnits}
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm text-gray-900 dark:text-white">
+                              {property.occupiedUnits}
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm text-gray-900 dark:text-white">
+                              {property.maintenanceUnits}
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm text-gray-900 dark:text-white">
+                              {property.vacantUnits}
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                              {formatPercentage(property.occupancyRate)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    {occupancyFilters.propertyIds.length
+                      ? 'No occupancy data found for the selected criteria.'
+                      : 'Select a property and as-of date, then generate the report.'}
                   </div>
                 )
               ) : activeReport === 'property-management' && filters.reportType === 'income-expenses' ? (
