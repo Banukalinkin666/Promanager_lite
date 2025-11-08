@@ -3,6 +3,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import Stripe from 'stripe';
 import Payment from '../models/Payment.js';
 import Invoice from '../models/Invoice.js';
+import Lease from '../models/Lease.js';
 
 const router = Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', { apiVersion: '2024-06-20' });
@@ -140,7 +141,50 @@ router.get('/', authenticate, authorize('TENANT', 'OWNER', 'ADMIN'), async (req,
       .populate('tenant', 'name firstName lastName nic primaryEmail phone')
       .populate('invoice')
       .populate('metadata.propertyId', 'title address city state country')
+      .populate('metadata.leaseId', 'agreementNumber leaseStartDate leaseEndDate status')
       .sort({ createdAt: -1 });
+
+    for (const payment of payments) {
+      let needsSave = false;
+      if (!payment.metadata) {
+        payment.metadata = {};
+        needsSave = true;
+      }
+
+      // Ensure original amount is captured for accurate reporting
+      if (!payment.metadata.originalAmount && payment.amount) {
+        payment.metadata.originalAmount = payment.amount;
+        needsSave = true;
+      }
+
+      const dueDate = new Date(payment.metadata?.dueDate || payment.createdAt);
+      let leaseDoc = payment.metadata?.leaseId;
+
+      if ((!leaseDoc || !leaseDoc.agreementNumber) && payment.metadata?.unitId) {
+        leaseDoc = await Lease.findOne({
+          unit: payment.metadata.unitId,
+          leaseStartDate: { $lte: dueDate },
+          leaseEndDate: { $gte: dueDate }
+        }).select('_id agreementNumber leaseStartDate leaseEndDate status');
+
+        if (leaseDoc) {
+          payment.metadata.leaseId = leaseDoc._id;
+          needsSave = true;
+        }
+      }
+
+      const agreementNumber = leaseDoc?.agreementNumber || payment.metadata?.agreementNumber;
+      if (agreementNumber && payment.metadata.agreementNumber !== agreementNumber) {
+        payment.metadata.agreementNumber = agreementNumber;
+        needsSave = true;
+      }
+
+      if (needsSave) {
+        payment.markModified('metadata');
+        await payment.save();
+      }
+    }
+
     res.json(payments);
   } catch (error) {
     console.error('Error fetching payments:', error);
@@ -186,7 +230,8 @@ router.patch('/:id', authenticate, authorize('OWNER', 'ADMIN'), async (req, res)
     )
     .populate('tenant', 'name firstName lastName nic primaryEmail phone')
     .populate('invoice')
-    .populate('metadata.propertyId', 'title address city state country');
+    .populate('metadata.propertyId', 'title address city state country')
+    .populate('metadata.leaseId', 'agreementNumber');
     
     res.json(updatedPayment);
   } catch (error) {

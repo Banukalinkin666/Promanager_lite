@@ -16,6 +16,8 @@ const PaymentSchema = new mongoose.Schema(
       unitId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property.units' },
       propertyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property' },
       unitNumber: { type: String },
+      leaseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lease' },
+      agreementNumber: { type: String },
       month: { type: String },
       dueDate: { type: String },
       type: { type: String, enum: ['rent_payment', 'invoice_payment'], default: 'invoice_payment' }

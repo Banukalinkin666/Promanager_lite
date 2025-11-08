@@ -360,6 +360,8 @@ const generateRentPayments = async (lease, property, unit) => {
         propertyId: lease.property,
         unitId: lease.unit,
         unitNumber: unit.name, // Store the actual unit number (100, 101, 204, 302)
+        leaseId: lease._id,
+        agreementNumber: lease.agreementNumber,
         month: currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         dueDate: dueDate.toISOString().split('T')[0],
         type: 'rent_payment',

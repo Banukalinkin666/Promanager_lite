@@ -3,7 +3,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { 
   Search, X, CreditCard, Calendar, User, Building, Home, 
   DollarSign, CheckCircle, AlertCircle, Clock, Filter,
-  Edit, Eye, Check, XCircle
+  Edit, Eye, Check, XCircle, FileText
 } from 'lucide-react';
 import api from '../lib/api.js';
 
@@ -118,15 +118,15 @@ export default function PaymentsPage() {
       const propertyName = payment.metadata?.propertyId?.title || '';
       const unitId = payment.metadata?.unitId;
       const unitNumber = payment.metadata?.unitNumber;
-      const unitName = unitNumber ? `Unit ${unitNumber}` : (unitId ? `Unit ${unitId.toString().slice(-3)}` : '');
-      const nic = payment.tenant?.nic || '';
-      
-      if (!tenantName.toLowerCase().includes(searchLower) &&
-          !propertyName.toLowerCase().includes(searchLower) &&
-          !unitName.toString().toLowerCase().includes(searchLower) &&
-          !nic.toLowerCase().includes(searchLower)) {
-        return false;
-      }
+      const agreementNumber = payment.metadata?.agreementNumber || payment.metadata?.leaseId?.agreementNumber || '';
+      const matchesSearch =
+        tenantName.toLowerCase().includes(searchLower) ||
+        propertyName.toLowerCase().includes(searchLower) ||
+        (unitId && unitId.toString().toLowerCase().includes(searchLower)) ||
+        (unitNumber && unitNumber.toLowerCase().includes(searchLower)) ||
+        agreementNumber.toLowerCase().includes(searchLower) ||
+        (payment.metadata?.month && payment.metadata.month.toLowerCase().includes(searchLower));
+      if (!matchesSearch) return false;
     }
 
     // Tenant filter
@@ -495,7 +495,7 @@ export default function PaymentsPage() {
               const unitId = payment.metadata?.unitId;
               // Use the actual unit number from metadata, fallback to ObjectId fragment
               const unitNumber = payment.metadata?.unitNumber;
-              const unitName = unitNumber ? `Unit ${unitNumber}` : (unitId ? `Unit ${unitId.toString().slice(-3).toUpperCase()}` : 'N/A');
+              const agreementNumber = payment.metadata?.agreementNumber || payment.metadata?.leaseId?.agreementNumber;
               const nic = payment.tenant?.nic || 'N/A';
               
               return (
@@ -534,7 +534,7 @@ export default function PaymentsPage() {
                       <div className="flex items-center gap-2">
                         <Home size={16} className="text-gray-400" />
                         <div>
-                          <div className="font-medium text-gray-900 dark:text-white text-sm">{unitName}</div>
+                          <div className="font-medium text-gray-900 dark:text-white text-sm">{unitNumber ? `Unit ${unitNumber}` : (unitId ? `Unit ${unitId.toString().slice(-3).toUpperCase()}` : 'N/A')}</div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">Unit</div>
                         </div>
                       </div>
@@ -595,6 +595,15 @@ export default function PaymentsPage() {
                     </div>
                   )}
 
+                  {/* Agreement Number */}
+                  {agreementNumber && (
+                    <div className="mt-1 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                      <FileText size={14} className="text-blue-500" />
+                      <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Agreement</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">#{agreementNumber.replace(/^#/, '')}</span>
+                    </div>
+                  )}
+                  
                   {/* Notes */}
                   {payment.notes && (
                     <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -699,6 +708,9 @@ export default function PaymentsPage() {
                   <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                     <div>Amount: <span className="font-medium">${selectedPayment.amount.toFixed(2)}</span></div>
                     <div>Tenant: <span className="font-medium">{selectedPayment.tenant?.name || `${selectedPayment.tenant?.firstName} ${selectedPayment.tenant?.lastName}`}</span></div>
+                    {selectedPayment.metadata?.agreementNumber && (
+                      <div>Agreement: <span className="font-medium">#{selectedPayment.metadata.agreementNumber.replace(/^#/, '')}</span></div>
+                    )}
                     <div>Property: <span className="font-medium">{selectedPayment.metadata?.propertyId?.title || 'N/A'}</span></div>
                     <div>Period: <span className="font-medium">{selectedPayment.metadata?.month || 'N/A'}</span></div>
                   </div>
