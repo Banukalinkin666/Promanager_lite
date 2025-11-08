@@ -306,8 +306,8 @@ const ReportsPage = () => {
       {activeReport === 'due-rent' && (
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="px-6 py-4">
-            <div className="flex flex-col lg:flex-row lg:items-end lg:space-x-4 space-y-4 lg:space-y-0">
-              <div className="lg:flex-1">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[260px]">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Property *
                 </label>
@@ -331,7 +331,7 @@ const ReportsPage = () => {
                 </select>
               </div>
 
-              <div className="lg:w-48">
+              <div className="w-40 min-w-[160px]">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Year *
                 </label>
@@ -346,7 +346,7 @@ const ReportsPage = () => {
                 </select>
               </div>
 
-              <div className="lg:w-56">
+              <div className="w-48 min-w-[200px]">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   As of Date
                 </label>
@@ -361,7 +361,7 @@ const ReportsPage = () => {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Report generated up to the selected date.</p>
               </div>
 
-              <div className="flex items-end">
+              <div className="flex-shrink-0">
                 <button
                   onClick={fetchDueRentReport}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
