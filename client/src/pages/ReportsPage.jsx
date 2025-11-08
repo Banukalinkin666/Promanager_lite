@@ -159,6 +159,10 @@ const ReportsPage = () => {
       if (response.data?.success) {
         setDueRentData(response.data.data);
         setExpandedDueRentProperties({});
+        const reportContainer = document.getElementById('due-rent-report-container');
+        if (reportContainer) {
+          reportContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       } else {
         setDueRentData(null);
       }
@@ -302,30 +306,32 @@ const ReportsPage = () => {
       {activeReport === 'due-rent' && (
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="px-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div className="md:col-span-2">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:space-x-4 space-y-4 lg:space-y-0">
+              <div className="lg:flex-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Property *
                 </label>
                 <select
-                  multiple
-                  value={dueRentFilters.propertyIds}
+                  value={dueRentFilters.propertyIds[0] || 'ALL'}
                   onChange={(e) => {
-                    const selectedValues = Array.from(e.target.selectedOptions).map(option => option.value);
-                    handleDueRentFilterChange('propertyIds', selectedValues);
+                    if (e.target.value === 'ALL') {
+                      handleDueRentFilterChange('propertyIds', ['ALL']);
+                    } else {
+                      handleDueRentFilterChange('propertyIds', [e.target.value]);
+                    }
                   }}
-                  className="w-full min-h-[120px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
+                  <option value="ALL">All Properties</option>
                   {properties.map(property => (
                     <option key={property._id} value={property._id}>
                       {property.title}
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hold Ctrl/Cmd to select multiple properties.</p>
               </div>
 
-              <div>
+              <div className="lg:w-48">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Year *
                 </label>
@@ -340,7 +346,7 @@ const ReportsPage = () => {
                 </select>
               </div>
 
-              <div>
+              <div className="lg:w-56">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   As of Date
                 </label>
@@ -841,11 +847,6 @@ const ReportsPage = () => {
                                     )}
                                     <span className="font-semibold">{property.propertyName}</span>
                                   </button>
-                                  {property.propertyAddress && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                      {property.propertyAddress}
-                                    </div>
-                                  )}
                                 </td>
                                 {dueRentMonthLabels.map((_, monthIndex) => (
                                   <td
