@@ -3,7 +3,8 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { 
   Home, Building, MapPin, DollarSign, Calendar, FileText, 
   User, Phone, Mail, Bed, Bath, Car, Zap, Droplets,
-  Clock, CheckCircle, AlertCircle, Download, CreditCard
+  Clock, CheckCircle, AlertCircle, Download, CreditCard,
+  UserCheck, DoorOpen, Wrench, Wallet, Hourglass, AlertTriangle
 } from 'lucide-react';
 import api from '../lib/api.js';
 import StatCard from '../components/StatCard.jsx';
@@ -1064,12 +1065,12 @@ export default function DashboardPage() {
                 <span className="font-bold text-gray-900 dark:text-white">{propertyStats.totalUnits}</span>
               </div>
               <div className="flex items-center gap-1">
-                <AlertCircle size={16} className="text-yellow-600" />
+                <DoorOpen size={16} className="text-yellow-600" />
                 <span className="text-gray-600 dark:text-gray-400">Vacant:</span>
                 <span className="font-bold text-gray-900 dark:text-white">{propertyStats.vacantUnits}</span>
               </div>
               <div className="flex items-center gap-1">
-                <Clock size={16} className="text-red-600" />
+                <Wrench size={16} className="text-red-600" />
                 <span className="text-gray-600 dark:text-gray-400">Maintenance:</span>
                 <span className="font-bold text-gray-900 dark:text-white">{propertyStats.maintenanceUnits}</span>
               </div>
@@ -1096,15 +1097,15 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1">
-                        <CheckCircle size={14} className="text-green-600" />
+                        <UserCheck size={14} className="text-green-600" />
                         <span className="text-xs text-green-800 dark:text-green-200">{property.occupied}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <AlertCircle size={14} className="text-yellow-600" />
+                        <DoorOpen size={14} className="text-yellow-600" />
                         <span className="text-xs text-yellow-800 dark:text-yellow-200">{property.vacant}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Clock size={14} className="text-red-600" />
+                        <Wrench size={14} className="text-red-600" />
                         <span className="text-xs text-red-800 dark:text-red-200">{property.maintenance}</span>
                       </div>
                     </div>
@@ -1136,17 +1137,17 @@ export default function DashboardPage() {
                 <span className="font-bold text-gray-900 dark:text-white">{tenantRentStats.totalActiveTenants}</span>
               </div>
               <div className="flex items-center gap-1">
-                <CheckCircle size={16} className="text-green-600" />
+                <Wallet size={16} className="text-green-600" />
                 <span className="text-gray-600 dark:text-gray-400">Paid:</span>
                 <span className="font-bold text-gray-900 dark:text-white">${tenantRentStats.totalPaidRent.toFixed(0)}</span>
               </div>
               <div className="flex items-center gap-1">
-                <Clock size={16} className="text-yellow-600" />
+                <Hourglass size={16} className="text-yellow-600" />
                 <span className="text-gray-600 dark:text-gray-400">Pending:</span>
                 <span className="font-bold text-gray-900 dark:text-white">${tenantRentStats.totalPendingRent.toFixed(0)}</span>
               </div>
               <div className="flex items-center gap-1">
-                <AlertCircle size={16} className="text-red-600" />
+                <AlertTriangle size={16} className="text-red-600" />
                 <span className="text-gray-600 dark:text-gray-400">Due:</span>
                 <span className="font-bold text-gray-900 dark:text-white">${tenantRentStats.totalDueRent.toFixed(0)}</span>
               </div>
@@ -1173,15 +1174,15 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1">
-                        <CheckCircle size={14} className="text-green-600" />
+                        <Wallet size={14} className="text-green-600" />
                         <span className="text-xs text-green-800 dark:text-green-200">${property.paidRent.toFixed(0)}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Clock size={14} className="text-yellow-600" />
+                        <Hourglass size={14} className="text-yellow-600" />
                         <span className="text-xs text-yellow-800 dark:text-yellow-200">${property.pendingRent.toFixed(0)}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <AlertCircle size={14} className="text-red-600" />
+                        <AlertTriangle size={14} className="text-red-600" />
                         <span className="text-xs text-red-800 dark:text-red-200">${property.dueRent.toFixed(0)}</span>
                       </div>
                     </div>
