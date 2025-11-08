@@ -496,7 +496,6 @@ export default function PaymentsPage() {
               // Use the actual unit number from metadata, fallback to ObjectId fragment
               const unitNumber = payment.metadata?.unitNumber;
               const agreementNumber = payment.metadata?.agreementNumber || payment.metadata?.leaseId?.agreementNumber;
-              const nic = payment.tenant?.nic || 'N/A';
               
               return (
                 <div key={payment._id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -517,7 +516,9 @@ export default function PaymentsPage() {
                         <User size={16} className="text-gray-400" />
                         <div>
                           <div className="font-medium text-gray-900 dark:text-white text-sm">{tenantName}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">NIC: {nic}</div>
+                          {agreementNumber && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Agreement: #{agreementNumber.replace(/^#/, '')}</div>
+                          )}
                         </div>
                       </div>
                       
