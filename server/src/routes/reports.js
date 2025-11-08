@@ -850,7 +850,7 @@ router.get('/property-management', authenticate, async (req, res) => {
 
     switch (reportType) {
       case 'income-expenses':
-        data = await generateIncomeExpensesReport(propertyId, year, page, limit);
+        data = await generateIncomeExpensesReport(propertyId, year);
         break;
       case 'occupancy-by-property':
         data = await generateOccupancyByPropertyReport(propertyId, year, page, limit);
@@ -881,106 +881,187 @@ router.get('/property-management', authenticate, async (req, res) => {
 });
 
 // Income & Expenses Report
-async function generateIncomeExpensesReport(propertyId, year, page, limit) {
-  const filter = {};
-  
-  if (propertyId) filter['metadata.propertyId'] = propertyId;
-  
-  if (year) {
-    const startDate = new Date(`${year}-01-01`);
-    const endDate = new Date(`${year}-12-31`);
-    filter.createdAt = {
-      $gte: startDate,
-      $lte: endDate
+async function generateIncomeExpensesReport(propertyId, year) {
+  const reportYear = parseInt(year, 10) || new Date().getFullYear();
+
+  const propertyIdStrings = propertyId
+    ? propertyId
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id && id !== 'ALL')
+    : [];
+
+  let propertyObjectIds = [];
+  try {
+    propertyObjectIds = propertyIdStrings.map((id) => new mongoose.Types.ObjectId(id));
+  } catch (error) {
+    throw new Error('Invalid property identifier provided');
+  }
+
+  const propertyQuery = propertyObjectIds.length ? { _id: { $in: propertyObjectIds } } : {};
+  const properties = await Property.find(propertyQuery).lean();
+
+  if (!properties.length) {
+    return {
+      year: reportYear,
+      monthLabels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+      properties: [],
+      totals: {
+        budget: { months: Array(12).fill(0), ytd: 0 },
+        dueRent: { months: Array(12).fill(0), ytd: 0 },
+        collected: { months: Array(12).fill(0), ytd: 0 },
+        variance: { months: Array(12).fill(0), ytd: 0 }
+      }
     };
   }
 
-  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  // Get all payments for the property
-  const payments = await Payment.find(filter)
-    .populate('tenant', 'firstName lastName email phone')
-    .populate('metadata.propertyId', 'title address')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(parseInt(limit));
+  const paymentFilter = {
+    status: { $in: ['PENDING', 'OVERDUE', 'SUCCEEDED'] }
+  };
 
-  const totalCount = await Payment.countDocuments(filter);
+  if (propertyObjectIds.length) {
+    paymentFilter.$or = [
+      { 'metadata.propertyId': { $in: propertyObjectIds } },
+      { 'metadata.propertyId': { $in: propertyIdStrings } }
+    ];
+  }
 
-  // Calculate income summary
-  const incomeSummary = await Payment.aggregate([
-    { $match: { ...filter, status: 'SUCCEEDED' } },
-    {
-      $group: {
-        _id: null,
-        totalIncome: { $sum: '$amount' },
-        totalTransactions: { $sum: 1 },
-        averageAmount: { $avg: '$amount' }
-      }
+  const payments = await Payment.find(paymentFilter).lean();
+
+  const parseDueDate = (payment) => {
+    if (payment.metadata?.dueDate) {
+      const parsed = new Date(payment.metadata.dueDate);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
     }
-  ]);
 
-  // Calculate monthly breakdown
-  const monthlyBreakdown = await Payment.aggregate([
-    { $match: { ...filter, status: 'SUCCEEDED' } },
-    {
-      $group: {
-        _id: {
-          month: { $month: '$createdAt' },
-          year: { $year: '$createdAt' }
-        },
-        totalIncome: { $sum: '$amount' },
-        transactionCount: { $sum: 1 }
-      }
-    },
-    { $sort: { '_id.month': 1 } }
-  ]);
-
-  // Calculate status breakdown
-  const statusBreakdown = await Payment.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: '$status',
-        count: { $sum: 1 },
-        totalAmount: { $sum: '$amount' }
-      }
+    if (payment.metadata?.month) {
+      const [monthName, maybeYear] = payment.metadata.month.split(' ');
+      const parsedYear = parseInt(maybeYear, 10);
+      const effectiveYear = Number.isNaN(parsedYear) ? reportYear : parsedYear;
+      const parsed = new Date(`${monthName} 1, ${effectiveYear}`);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
     }
-  ]);
+
+    if (payment.metadata?.dueDateTimestamp) {
+      const parsed = new Date(payment.metadata.dueDateTimestamp);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    return null;
+  };
+
+  const parseCollectedDate = (payment) => {
+    if (payment.paidDate) {
+      const paid = new Date(payment.paidDate);
+      if (!Number.isNaN(paid.getTime())) return paid;
+    }
+
+    if (payment.createdAt) {
+      const created = new Date(payment.createdAt);
+      if (!Number.isNaN(created.getTime())) return created;
+    }
+
+    return null;
+  };
+
+  const totals = {
+    budget: { months: Array(12).fill(0), ytd: 0 },
+    dueRent: { months: Array(12).fill(0), ytd: 0 },
+    collected: { months: Array(12).fill(0), ytd: 0 },
+    variance: { months: Array(12).fill(0), ytd: 0 }
+  };
+
+  const propertyReports = properties.map((property) => {
+    const propertyIdStr = property._id.toString();
+
+    const monthlyBudgetBase =
+      property.units?.reduce((sum, unit) => sum + (unit.rentAmount || 0), 0) || property.baseRent || 0;
+
+    const budget = {
+      months: Array(12).fill(Number(monthlyBudgetBase.toFixed(3))),
+      ytd: Number((monthlyBudgetBase * 12).toFixed(3))
+    };
+
+    const dueRent = { months: Array(12).fill(0), ytd: 0 };
+    const collected = { months: Array(12).fill(0), ytd: 0 };
+
+    payments.forEach((payment) => {
+      const metadataPropertyId = payment.metadata?.propertyId;
+      const paymentPropertyIdStr = metadataPropertyId?.toString ? metadataPropertyId.toString() : metadataPropertyId;
+
+      if (!paymentPropertyIdStr || paymentPropertyIdStr !== propertyIdStr) {
+        return;
+      }
+
+      if (['PENDING', 'OVERDUE'].includes(payment.status)) {
+        const dueDate = parseDueDate(payment);
+        if (dueDate && dueDate.getFullYear() === reportYear) {
+          const monthIndex = dueDate.getMonth();
+          const amount = Number(payment.metadata?.originalAmount ?? payment.amount ?? 0);
+          dueRent.months[monthIndex] += amount;
+        }
+      }
+
+      if (payment.status === 'SUCCEEDED') {
+        const collectedDate = parseCollectedDate(payment);
+        if (collectedDate && collectedDate.getFullYear() === reportYear) {
+          const monthIndex = collectedDate.getMonth();
+          const amount = Number(payment.amount ?? 0);
+          collected.months[monthIndex] += amount;
+        }
+      }
+    });
+
+    dueRent.months = dueRent.months.map((value) => Number(value.toFixed(3)));
+    dueRent.ytd = Number(dueRent.months.reduce((sum, value) => sum + value, 0).toFixed(3));
+
+    collected.months = collected.months.map((value) => Number(value.toFixed(3)));
+    collected.ytd = Number(collected.months.reduce((sum, value) => sum + value, 0).toFixed(3));
+
+    const variance = {
+      months: dueRent.months.map((value, index) =>
+        Number((value - (collected.months[index] || 0)).toFixed(3))
+      ),
+      ytd: Number((dueRent.ytd - collected.ytd).toFixed(3))
+    };
+
+    totals.budget.months = totals.budget.months.map(
+      (value, index) => Number((value + budget.months[index]).toFixed(3))
+    );
+    totals.budget.ytd = Number((totals.budget.ytd + budget.ytd).toFixed(3));
+
+    totals.dueRent.months = totals.dueRent.months.map(
+      (value, index) => Number((value + dueRent.months[index]).toFixed(3))
+    );
+    totals.dueRent.ytd = Number((totals.dueRent.ytd + dueRent.ytd).toFixed(3));
+
+    totals.collected.months = totals.collected.months.map(
+      (value, index) => Number((value + collected.months[index]).toFixed(3))
+    );
+    totals.collected.ytd = Number((totals.collected.ytd + collected.ytd).toFixed(3));
+
+    totals.variance.months = totals.variance.months.map(
+      (value, index) => Number((value + variance.months[index]).toFixed(3))
+    );
+    totals.variance.ytd = Number((totals.variance.ytd + variance.ytd).toFixed(3));
+
+    return {
+      propertyId: property._id,
+      propertyName: property.title,
+      budget,
+      dueRent,
+      collected,
+      variance
+    };
+  });
 
   return {
-    payments: payments.map(payment => ({
-      id: payment._id,
-      tenant: {
-        name: `${payment.tenant.firstName} ${payment.tenant.lastName}`,
-        email: payment.tenant.email,
-        phone: payment.tenant.phone
-      },
-      property: payment.metadata.propertyId.title,
-      unit: payment.metadata.unitId,
-      amount: payment.amount,
-      status: payment.status,
-      method: payment.method,
-      description: payment.description,
-      paidDate: payment.paidDate,
-      createdAt: payment.createdAt
-    })),
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(totalCount / parseInt(limit)),
-      totalCount,
-      hasNext: skip + payments.length < totalCount,
-      hasPrev: parseInt(page) > 1
-    },
-    summary: incomeSummary[0] || {
-      totalIncome: 0,
-      totalTransactions: 0,
-      averageAmount: 0
-    },
-    breakdown: {
-      monthly: monthlyBreakdown,
-      status: statusBreakdown
-    }
+    year: reportYear,
+    monthLabels,
+    properties: propertyReports.filter(Boolean),
+    totals
   };
 }
 

@@ -13,7 +13,8 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  SlidersHorizontal
 } from 'lucide-react';
 import api from '../lib/api.js';
 
@@ -59,13 +60,18 @@ const ReportsPage = () => {
   const [uncollectedData, setUncollectedData] = useState(null);
   const [uncollectedLoading, setUncollectedLoading] = useState(false);
   const [expandedUncollectedProperties, setExpandedUncollectedProperties] = useState({});
+  const [incomeExpensesFilters, setIncomeExpensesFilters] = useState({
+    propertyIds: ['ALL'],
+    year: currentYear.toString()
+  });
+  const [incomeExpensesLoading, setIncomeExpensesLoading] = useState(false);
 
   // Fetch data based on active report
   const fetchReportData = async () => {
     setLoading(true);
     try {
       const response = await api.get(`/reports/${activeReport}`, { params: filters });
-      setData(response.data);
+      setData(response.data?.data || null);
     } catch (error) {
       console.error('Error fetching report data:', error);
     } finally {
@@ -75,8 +81,9 @@ const ReportsPage = () => {
 
   useEffect(() => {
     if (activeReport === 'due-rent' || activeReport === 'uncollected-rent') return;
+    if (activeReport === 'property-management' && filters.reportType === 'income-expenses') return;
     fetchReportData();
-  }, [activeReport, filters.page]);
+  }, [activeReport, filters.page, filters.reportType]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
@@ -108,7 +115,13 @@ const ReportsPage = () => {
         propertyIds: ['ALL']
       }));
     }
-  }, [properties, dueRentFilters.propertyIds.length, uncollectedFilters.propertyIds.length]);
+    if (properties.length > 0 && (!incomeExpensesFilters.propertyIds.length || incomeExpensesFilters.propertyIds[0] === 'ALL')) {
+      setIncomeExpensesFilters(prev => ({
+        ...prev,
+        propertyIds: ['ALL']
+      }));
+    }
+  }, [properties, dueRentFilters.propertyIds.length, uncollectedFilters.propertyIds.length, incomeExpensesFilters.propertyIds.length]);
 
   const handleSearch = () => {
     fetchReportData();
@@ -122,8 +135,6 @@ const ReportsPage = () => {
       status: '',
       dueDateFrom: '',
       dueDateTo: '',
-      amountFrom: '',
-      amountTo: '',
       sortBy: 'dueDate',
       sortOrder: 'asc',
       page: 1,
@@ -161,6 +172,14 @@ const ReportsPage = () => {
     }));
     setExpandedUncollectedProperties({});
     setUncollectedData(null);
+  };
+
+  const handleIncomeExpensesFilterChange = (key, value) => {
+    setIncomeExpensesFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    setData(null);
   };
 
   const fetchDueRentReport = async () => {
@@ -269,6 +288,55 @@ const ReportsPage = () => {
   const uncollectedMonthLabels = uncollectedData?.monthLabels || monthLabels;
   const uncollectedProperties = uncollectedData?.properties || [];
   const uncollectedTotals = uncollectedData?.totals || { months: Array(12).fill(0), ytd: 0 };
+  const incomeExpensesData =
+    activeReport === 'property-management' && filters.reportType === 'income-expenses' ? data : null;
+  const incomeExpensesProperties = incomeExpensesData?.properties || [];
+  const incomeExpensesTotals = incomeExpensesData?.totals || {
+    budget: { months: Array(12).fill(0), ytd: 0 },
+    dueRent: { months: Array(12).fill(0), ytd: 0 },
+    collected: { months: Array(12).fill(0), ytd: 0 },
+    variance: { months: Array(12).fill(0), ytd: 0 }
+  };
+  const incomeExpensesMonthLabels = incomeExpensesData?.monthLabels || monthLabels;
+  const formatIncomeAmount = (value = 0) => {
+    const amount = Number(value) || 0;
+    return amount.toFixed(3);
+  };
+
+  const fetchIncomeExpensesReport = async () => {
+    if (!incomeExpensesFilters.year) {
+      console.warn('Year is required for the income & expenses report');
+      return;
+    }
+
+    setIncomeExpensesLoading(true);
+    try {
+      const params = {
+        reportType: 'income-expenses',
+        propertyId:
+          !incomeExpensesFilters.propertyIds.length || incomeExpensesFilters.propertyIds[0] === 'ALL'
+            ? ''
+            : incomeExpensesFilters.propertyIds.join(','),
+        year: incomeExpensesFilters.year
+      };
+
+      const response = await api.get('/reports/property-management', { params });
+      if (response.data?.success) {
+        setData(response.data.data || null);
+        const container = document.getElementById('income-expenses-report-container');
+        if (container) {
+          container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else {
+        setData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching income & expenses report:', error);
+      setData(null);
+    } finally {
+      setIncomeExpensesLoading(false);
+    }
+  };
 
   const handleExport = async (format) => {
     if (activeReport === 'due-rent' && (!dueRentFilters.propertyIds.length || !dueRentFilters.year)) {
@@ -373,16 +441,23 @@ const ReportsPage = () => {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">Generate and export professional reports</p>
             </div>
-            {activeReport !== 'due-rent' && (
+            {activeReport !== 'due-rent' && activeReport !== 'uncollected-rent' && !(activeReport === 'property-management' && filters.reportType === 'income-expenses') && (
               <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
-                >
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filters
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </button>
+                <input
+                  type="text"
+                  placeholder="Search report"
+                  value={filters.searchTerm || ''}
+                  onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+                {!(activeReport === 'due-rent' || activeReport === 'uncollected-rent' || (activeReport === 'property-management' && filters.reportType === 'income-expenses')) && (
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`p-2 rounded-lg border ${showFilters ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300' : 'border-gray-300 text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'} transition-colors`}
+                  >
+                    <SlidersHorizontal className="w-5 h-5" />
+                  </button>
+                )}
                 <button
                   onClick={handleSearch}
                   disabled={loading}
@@ -526,6 +601,72 @@ const ReportsPage = () => {
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
                 >
                   {uncollectedLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Generate Report
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeReport === 'property-management' && filters.reportType === 'income-expenses' && (
+        <div id="income-expenses-filters" className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="px-6 py-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[220px] max-w-[480px]">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Property *
+                </label>
+                <select
+                  value={incomeExpensesFilters.propertyIds[0] || 'ALL'}
+                  onChange={(e) => {
+                    if (e.target.value === 'ALL') {
+                      handleIncomeExpensesFilterChange('propertyIds', ['ALL']);
+                    } else {
+                      handleIncomeExpensesFilterChange('propertyIds', [e.target.value]);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="ALL">All Properties</option>
+                  {properties.map(property => (
+                    <option key={property._id} value={property._id}>
+                      {property.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="w-40 min-w-[160px]">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Year *
+                </label>
+                <select
+                  value={incomeExpensesFilters.year}
+                  onChange={(e) => handleIncomeExpensesFilterChange('year', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {yearOptions.map(yearOption => (
+                    <option key={yearOption} value={yearOption}>{yearOption}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex-shrink-0">
+                <button
+                  onClick={fetchIncomeExpensesReport}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                >
+                  {incomeExpensesLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Generating...
@@ -1209,6 +1350,107 @@ const ReportsPage = () => {
                   <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     {uncollectedFilters.propertyIds.length
                       ? 'No uncollected rent found for the selected criteria.'
+                      : 'Select a property and year, then generate the report.'}
+                  </div>
+                )
+              ) : activeReport === 'property-management' && filters.reportType === 'income-expenses' ? (
+                incomeExpensesLoading ? (
+                  <div className="flex items-center justify-center py-12 text-gray-500 dark:text-gray-300">
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Generating income &amp; expenses report...
+                  </div>
+                ) : incomeExpensesProperties.length ? (
+                  <div className="min-w-full">
+                    <div className="px-6 py-3 text-sm text-gray-600 dark:text-gray-300">
+                      Reporting year {incomeExpensesData?.year}
+                    </div>
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Income (Occupancy)
+                        </th>
+                        {incomeExpensesMonthLabels.map((monthLabel) => (
+                          <th
+                            key={`income-expenses-header-${monthLabel}`}
+                            className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                          >
+                            {monthLabel}
+                          </th>
+                        ))}
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          YTD
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {incomeExpensesProperties.map((property) => (
+                        <React.Fragment key={`income-expenses-property-${property.propertyId}`}>
+                          <tr className="bg-gray-100 dark:bg-gray-900">
+                            <td
+                              className="px-6 py-3 text-sm font-semibold text-gray-900 dark:text-white"
+                              colSpan={incomeExpensesMonthLabels.length + 2}
+                            >
+                              {property.propertyName}
+                            </td>
+                          </tr>
+                          {[
+                            { label: 'Total Income Approved Budget', data: property.budget },
+                            { label: 'Total Due Rent', data: property.dueRent },
+                            { label: 'Total Occupancy Collection', data: property.collected },
+                            { label: 'Total Rent Variance', data: property.variance }
+                          ].map((row) => (
+                            <tr key={`${property.propertyId}-${row.label}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                              <td className="px-6 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                {row.label}
+                              </td>
+                              {incomeExpensesMonthLabels.map((_, monthIndex) => (
+                                <td
+                                  key={`${property.propertyId}-${row.label}-${monthIndex}`}
+                                  className="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300"
+                                >
+                                  {formatIncomeAmount(row.data?.months?.[monthIndex] || 0)}
+                                </td>
+                              ))}
+                              <td className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                                {formatIncomeAmount(row.data?.ytd || 0)}
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-100 dark:bg-gray-900">
+                      {[
+                        { label: 'Grand Total Approved Budget', data: incomeExpensesTotals.budget },
+                        { label: 'Grand Total Due Rent', data: incomeExpensesTotals.dueRent },
+                        { label: 'Grand Total Occupancy Collection', data: incomeExpensesTotals.collected },
+                        { label: 'Grand Total Rent Variance', data: incomeExpensesTotals.variance }
+                      ].map((row) => (
+                        <tr key={`income-expenses-total-${row.label}`}>
+                          <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                            {row.label}
+                          </th>
+                          {incomeExpensesMonthLabels.map((_, monthIndex) => (
+                            <th
+                              key={`income-expenses-total-${row.label}-${monthIndex}`}
+                              className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white"
+                            >
+                              {formatIncomeAmount(row.data?.months?.[monthIndex] || 0)}
+                            </th>
+                          ))}
+                          <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                            {formatIncomeAmount(row.data?.ytd || 0)}
+                          </th>
+                        </tr>
+                      ))}
+                    </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    {incomeExpensesFilters.propertyIds.length
+                      ? 'No income or expense data found for the selected criteria.'
                       : 'Select a property and year, then generate the report.'}
                   </div>
                 )
