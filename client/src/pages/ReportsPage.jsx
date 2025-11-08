@@ -340,6 +340,13 @@ const ReportsPage = () => {
     activeReport === 'property-management' && filters.reportType === 'occupancy-by-property' ? occupancyData : null;
   const occupancyProperties = occupancyReportData?.properties || [];
   const formatPercentage = (value = 0) => `${(Number(value) || 0).toFixed(3)}%`;
+  const canExportExcel =
+    activeReport === 'due-rent' ||
+    activeReport === 'uncollected-rent' ||
+    (activeReport === 'property-management' &&
+      (filters.reportType === 'income-expenses' || filters.reportType === 'occupancy-by-property'));
+  const canExportPdf = activeReport === 'property-management';
+  const showExportCard = canExportExcel || canExportPdf;
 
   const fetchIncomeExpensesReport = async () => {
     if (!incomeExpensesFilters.year) {
@@ -1199,28 +1206,32 @@ const ReportsPage = () => {
           )}
 
           {/* Export Buttons */}
-          {activeReport !== 'due-rent' && activeReport !== 'uncollected-rent' && (
+          {showExportCard && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
               <div className="p-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white">Export Options</h3>
                   <div className="flex space-x-3">
-                    <button
-                      onClick={() => handleExport('excel')}
-                      disabled={exporting}
-                      className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      {exporting ? 'Exporting...' : 'Export Excel'}
-                    </button>
-                    <button
-                      onClick={() => handleExport('pdf')}
-                      disabled={exporting}
-                      className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      {exporting ? 'Exporting...' : 'Export PDF'}
-                    </button>
+                    {canExportExcel && (
+                      <button
+                        onClick={() => handleExport('excel')}
+                        disabled={exporting}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        {exporting ? 'Exporting...' : 'Export Excel'}
+                      </button>
+                    )}
+                    {canExportPdf && (
+                      <button
+                        onClick={() => handleExport('pdf')}
+                        disabled={exporting}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        {exporting ? 'Exporting...' : 'Export PDF'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
