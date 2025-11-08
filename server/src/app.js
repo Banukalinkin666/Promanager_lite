@@ -214,8 +214,8 @@ app.get('/api/clear-property-data', async (_req, res) => {
     const Invoice = (await import('./models/Invoice.js')).default;
     const Lease = (await import('./models/Lease.js')).default;
     
-    // Delete only TENANT users (keep ADMIN and OWNER)
-    const tenantResult = await User.deleteMany({ role: 'TENANT' });
+    // Delete every user that isn't an ADMIN (tenants, owners, staff, etc.)
+    const nonAdminResult = await User.deleteMany({ role: { $ne: 'ADMIN' } });
     
     // Clear all properties (this will also clear all units)
     const propertyResult = await Property.deleteMany({});
@@ -232,7 +232,7 @@ app.get('/api/clear-property-data', async (_req, res) => {
     res.json({ 
       message: 'Properties, Units, Tenants, and Payments cleared successfully. Fresh start ready!',
       deleted: {
-        tenants: tenantResult.deletedCount,
+        nonAdminUsers: nonAdminResult.deletedCount,
         properties: propertyResult.deletedCount,
         payments: paymentResult.deletedCount,
         invoices: invoiceResult.deletedCount,
