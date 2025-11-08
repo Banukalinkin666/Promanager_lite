@@ -595,15 +595,6 @@ export default function PaymentsPage() {
                       {payment.description}
                     </div>
                   )}
-
-                  {/* Agreement Number */}
-                  {agreementNumber && (
-                    <div className="mt-1 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                      <FileText size={14} className="text-blue-500" />
-                      <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Agreement</span>
-                      <span className="font-medium text-gray-800 dark:text-gray-200">#{agreementNumber.replace(/^#/, '')}</span>
-                    </div>
-                  )}
                   
                   {/* Notes */}
                   {payment.notes && (
