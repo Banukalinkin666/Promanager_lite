@@ -422,198 +422,246 @@ router.get('/due-rent/export/pdf', authenticate, async (req, res) => {
 // Uncollected Rent Report with filters
 router.get('/uncollected-rent', authenticate, async (req, res) => {
   try {
-    const { 
-      propertyId, 
-      year,
-      month,
-      status = 'PENDING,OVERDUE',
-      sortBy = 'dueDate',
-      sortOrder = 'asc',
-      page = 1,
-      limit = 50
-    } = req.query;
+    const { propertyId, year } = req.query;
 
-    // Build filter criteria
-    const filter = {};
-    
-    if (propertyId) filter['metadata.propertyId'] = propertyId;
-    
-    // Status filter - default to uncollected (pending/overdue)
-    if (status) {
-      const statusArray = status.split(',').map(s => s.trim());
-      filter.status = { $in: statusArray };
-    } else {
-      filter.status = { $in: ['PENDING', 'OVERDUE'] };
-    }
-    
-    // Year filter
-    if (year) {
-      const startDate = new Date(`${year}-01-01`);
-      const endDate = new Date(`${year}-12-31`);
-      filter.metadata = filter.metadata || {};
-      filter.metadata.dueDate = {
-        $gte: startDate,
-        $lte: endDate
-      };
-    }
-    
-    // Month filter (if year is also provided)
-    if (month && year) {
-      const startDate = new Date(`${year}-${month.padStart(2, '0')}-01`);
-      const endDate = new Date(`${year}-${month.padStart(2, '0')}-31`);
-      filter.metadata = filter.metadata || {};
-      filter.metadata.dueDate = {
-        $gte: startDate,
-        $lte: endDate
-      };
+    if (!year) {
+      return res.status(400).json({ success: false, message: 'Year is required' });
     }
 
-    // Build sort criteria
-    const sort = {};
-    if (sortBy === 'dueDate') {
-      sort['metadata.dueDate'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'amount') {
-      sort.amount = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'tenant') {
-      sort.tenant = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'property') {
-      sort['metadata.propertyId'] = sortOrder === 'desc' ? -1 : 1;
+    const reportYear = parseInt(year, 10);
+    if (Number.isNaN(reportYear)) {
+      return res.status(400).json({ success: false, message: 'Invalid year' });
     }
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const propertyIdStrings = propertyId
+      ? propertyId
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : [];
 
-    // Get payments with populated data
-    const payments = await Payment.find(filter)
-      .populate('tenant', 'firstName lastName email phone')
-      .populate('metadata.propertyId', 'title address')
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit));
+    let propertyObjectIds = [];
+    try {
+      propertyObjectIds = propertyIdStrings.length
+        ? propertyIdStrings.map((id) => new mongoose.Types.ObjectId(id))
+        : [];
+    } catch (error) {
+      return res.status(400).json({ success: false, message: 'Invalid property identifier' });
+    }
 
-    // Get total count for pagination
-    const totalCount = await Payment.countDocuments(filter);
+    const propertyQuery = propertyObjectIds.length
+      ? { _id: { $in: propertyObjectIds } }
+      : {};
 
-    // Calculate summary statistics
-    const summary = await Payment.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: '$amount' },
-          totalCount: { $sum: 1 },
-          averageAmount: { $avg: '$amount' },
-          minAmount: { $min: '$amount' },
-          maxAmount: { $max: '$amount' }
+    const properties = await Property.find(propertyQuery)
+      .populate('units.tenant', 'firstName lastName email phone');
+
+    if (!properties.length) {
+      return res.status(404).json({ success: false, message: 'No matching properties found' });
+    }
+
+    const propertyIdSet = new Set(propertyObjectIds.map((id) => id.toString()));
+
+    const paymentQuery = {
+      status: { $in: ['PENDING', 'OVERDUE'] }
+    };
+
+    if (propertyObjectIds.length) {
+      paymentQuery.$or = [
+        { 'metadata.propertyId': { $in: propertyObjectIds } },
+        { 'metadata.propertyId': { $in: propertyIdStrings } }
+      ];
+    }
+
+    const rawPayments = await Payment.find(paymentQuery)
+      .populate('tenant', 'firstName lastName email phone');
+
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const parseDueDate = (payment) => {
+      if (payment.metadata?.dueDate) {
+        const parsed = new Date(payment.metadata.dueDate);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
         }
       }
-    ]);
 
-    // Get status breakdown
-    const statusBreakdown = await Payment.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
+      if (payment.metadata?.month) {
+        const [monthName, maybeYear] = payment.metadata.month.split(' ');
+        const parsedYear = parseInt(maybeYear, 10);
+        const effectiveYear = Number.isNaN(parsedYear) ? reportYear : parsedYear;
+        const parsed = new Date(`${monthName} 1, ${effectiveYear}`);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
         }
       }
-    ]);
 
-    // Get property-wise breakdown
-    const propertyBreakdown = await Payment.aggregate([
-      { $match: filter },
-      {
-        $lookup: {
-          from: 'properties',
-          localField: 'metadata.propertyId',
-          foreignField: '_id',
-          as: 'property'
-        }
-      },
-      { $unwind: '$property' },
-      {
-        $group: {
-          _id: '$property.title',
-          count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
+      if (payment.metadata?.dueDateTimestamp) {
+        const parsed = new Date(payment.metadata.dueDateTimestamp);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
         }
       }
-    ]);
 
-    // Get monthly breakdown (if year is provided)
-    let monthlyBreakdown = [];
-    if (year) {
-      monthlyBreakdown = await Payment.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: {
-              month: { $month: '$metadata.dueDate' },
-              year: { $year: '$metadata.dueDate' }
-            },
-            count: { $sum: 1 },
-            totalAmount: { $sum: '$amount' }
-          }
+      return null;
+    };
+
+    const ensureUnitName = (unit) => {
+      return (
+        unit?.name ||
+        unit?.unit ||
+        unit?.unitName ||
+        unit?.unitNumber ||
+        unit?.title ||
+        (unit?._id ? `Unit ${unit._id.toString().slice(-4)}` : 'Unit')
+      );
+    };
+
+    const uncollectedResults = [];
+
+    for (const property of properties) {
+      const propertyIdStr = property._id.toString();
+
+      const summaryMonths = Array(12).fill(0);
+      const unitsMap = new Map();
+
+      const propertyPayments = rawPayments.filter((payment) => {
+        const metadataPropertyId = payment.metadata?.propertyId;
+        const paymentPropertyIdStr = metadataPropertyId?.toString
+          ? metadataPropertyId.toString()
+          : metadataPropertyId;
+
+        if (!paymentPropertyIdStr) return false;
+
+        if (propertyIdSet.size === 0) {
+          return paymentPropertyIdStr === propertyIdStr;
+        }
+
+        return propertyIdSet.has(paymentPropertyIdStr) && paymentPropertyIdStr === propertyIdStr;
+      });
+
+      propertyPayments.forEach((payment) => {
+        const dueDate = parseDueDate(payment);
+        if (!dueDate || dueDate.getFullYear() !== reportYear) {
+          return;
+        }
+
+        const monthIndex = dueDate.getMonth();
+        const amount = Number(payment.metadata?.originalAmount ?? payment.amount ?? 0);
+
+        summaryMonths[monthIndex] += amount;
+
+        const unitKey =
+          payment.metadata?.unitId?.toString?.() ||
+          payment.metadata?.unitNumber ||
+          payment.metadata?.unitName ||
+          'UNKNOWN_UNIT';
+
+        if (!unitsMap.has(unitKey)) {
+          const tenantName = payment.tenant
+            ? `${payment.tenant.firstName || ''} ${payment.tenant.lastName || ''}`.trim() || payment.tenant.email || '-'
+            : '-';
+
+          unitsMap.set(unitKey, {
+            unitId: payment.metadata?.unitId || null,
+            unitName: payment.metadata?.unitNumber
+              ? `Unit ${payment.metadata.unitNumber}`
+              : payment.metadata?.unitName || ensureUnitName({ name: payment.metadata?.unitNumber }),
+            tenantName: tenantName || '-',
+            months: Array(12).fill(0)
+          });
+        }
+
+        const unitData = unitsMap.get(unitKey);
+
+        if (payment.tenant && (!unitData.tenantName || unitData.tenantName === '-')) {
+          const tenantName = `${payment.tenant.firstName || ''} ${payment.tenant.lastName || ''}`.trim();
+          unitData.tenantName = tenantName || payment.tenant.email || '-';
+        }
+
+        unitData.months[monthIndex] += amount;
+      });
+
+      const propertySummaryMonths = summaryMonths.map((value) => Number(value.toFixed(3)));
+      const propertySummaryYtd = Number(propertySummaryMonths.reduce((sum, value) => sum + value, 0).toFixed(3));
+
+      const units = Array.from(unitsMap.values())
+        .map((unitData) => {
+          const unitMonths = unitData.months.map((value) => Number(value.toFixed(3)));
+          const unitYtd = Number(unitMonths.reduce((sum, value) => sum + value, 0).toFixed(3));
+          return {
+            unitId: unitData.unitId,
+            unitName: unitData.unitName,
+            tenantName: unitData.tenantName,
+            summary: {
+              months: unitMonths,
+              ytd: unitYtd
+            }
+          };
+        })
+        .filter((unit) => unit.summary.ytd > 0)
+        .sort((a, b) => (a.unitName || '').localeCompare(b.unitName || ''));
+
+      const unitsTotals = units.reduce(
+        (acc, unit) => {
+          unit.summary.months.forEach((value, index) => {
+            acc.months[index] += value;
+          });
+          acc.ytd += unit.summary.ytd;
+          return acc;
         },
-        { $sort: { '_id.month': 1 } }
-      ]);
+        { months: Array(12).fill(0), ytd: 0 }
+      );
+
+      const occupancyDifference = {
+        months: propertySummaryMonths.map((value, index) => Number((value - (unitsTotals.months[index] || 0)).toFixed(3))),
+        ytd: Number((propertySummaryYtd - unitsTotals.ytd).toFixed(3))
+      };
+
+      if (propertySummaryYtd > 0 || units.length > 0 || occupancyDifference.ytd !== 0) {
+        uncollectedResults.push({
+          propertyId: property._id,
+          propertyName: property.title,
+          summary: {
+            months: propertySummaryMonths,
+            ytd: propertySummaryYtd
+          },
+          units,
+          occupancyDifference
+        });
+      }
     }
 
-    // Format response
-    const formattedPayments = payments.map(payment => ({
-      id: payment._id,
-      tenant: {
-        name: `${payment.tenant.firstName} ${payment.tenant.lastName}`,
-        email: payment.tenant.email,
-        phone: payment.tenant.phone
-      },
-      property: payment.metadata.propertyId.title,
-      unit: payment.metadata.unitId,
-      amount: payment.amount,
-      status: payment.status,
-      dueDate: payment.metadata.dueDate,
-      description: payment.description,
-      method: payment.method,
-      paidDate: payment.paidDate,
-      createdAt: payment.createdAt,
-      daysOverdue: payment.status === 'OVERDUE' ? 
-        Math.floor((new Date() - new Date(payment.metadata.dueDate)) / (1000 * 60 * 60 * 24)) : 0
-    }));
+    const totals = {
+      months: Array(12).fill(0),
+      ytd: 0
+    };
+
+    uncollectedResults.forEach((property) => {
+      property.summary.months.forEach((value, index) => {
+        totals.months[index] += value;
+      });
+      totals.ytd += property.summary.ytd;
+    });
+
+    totals.months = totals.months.map((value) => Number(value.toFixed(3)));
+    totals.ytd = Number(totals.ytd.toFixed(3));
 
     res.json({
       success: true,
       data: {
-        payments: formattedPayments,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(totalCount / parseInt(limit)),
-          totalCount,
-          hasNext: skip + payments.length < totalCount,
-          hasPrev: parseInt(page) > 1
-        },
-        summary: summary[0] || {
-          totalAmount: 0,
-          totalCount: 0,
-          averageAmount: 0,
-          minAmount: 0,
-          maxAmount: 0
-        },
-        breakdown: {
-          status: statusBreakdown,
-          property: propertyBreakdown,
-          monthly: monthlyBreakdown
-        }
+        year: reportYear,
+        monthLabels,
+        properties: uncollectedResults,
+        totals
       }
     });
-
   } catch (error) {
     console.error('Uncollected rent report error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Failed to generate uncollected rent report',
-      error: error.message 
+      error: error.message
     });
   }
 });
