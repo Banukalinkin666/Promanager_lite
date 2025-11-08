@@ -307,7 +307,7 @@ const ReportsPage = () => {
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="px-6 py-4">
             <div className="flex flex-wrap items-end gap-4">
-              <div className="flex-1 min-w-[260px]">
+              <div className="flex-1 min-w-[220px] max-w-[480px]">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Property *
                 </label>
