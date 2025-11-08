@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Property from '../models/Property.js';
 import Payment from '../models/Payment.js';
 import User from '../models/User.js';
@@ -10,173 +11,249 @@ const router = Router();
 // Due Rent Report with filters
 router.get('/due-rent', authenticate, async (req, res) => {
   try {
-    const { 
-      propertyId, 
-      unitId, 
-      tenantId, 
-      status, 
-      dueDateFrom, 
-      dueDateTo,
-      amountFrom,
-      amountTo,
-      sortBy = 'dueDate',
-      sortOrder = 'asc',
-      page = 1,
-      limit = 50
-    } = req.query;
+    const { propertyId, year, asOfDate } = req.query;
 
-    // Build filter criteria
-    const filter = {};
-    
-    if (propertyId) filter['metadata.propertyId'] = propertyId;
-    if (unitId) filter['metadata.unitId'] = unitId;
-    if (tenantId) filter.tenant = tenantId;
-    if (status) filter.status = status;
-    
-    // Date range filters
-    if (dueDateFrom || dueDateTo) {
-      filter.metadata = filter.metadata || {};
-      filter.metadata.dueDate = {};
-      if (dueDateFrom) filter.metadata.dueDate.$gte = new Date(dueDateFrom);
-      if (dueDateTo) filter.metadata.dueDate.$lte = new Date(dueDateTo);
-    }
-    
-    // Amount range filters
-    if (amountFrom || amountTo) {
-      filter.amount = {};
-      if (amountFrom) filter.amount.$gte = parseFloat(amountFrom);
-      if (amountTo) filter.amount.$lte = parseFloat(amountTo);
+    if (!propertyId) {
+      return res.status(400).json({ success: false, message: 'Property selection is required' });
     }
 
-    // Default to pending/overdue payments
-    if (!status) {
-      filter.status = { $in: ['PENDING', 'OVERDUE'] };
+    if (!year) {
+      return res.status(400).json({ success: false, message: 'Year is required' });
     }
 
-    // Build sort criteria
-    const sort = {};
-    if (sortBy === 'dueDate') {
-      sort['metadata.dueDate'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'amount') {
-      sort.amount = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'tenant') {
-      sort.tenant = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'property') {
-      sort['metadata.propertyId'] = sortOrder === 'desc' ? -1 : 1;
+    const propertyIdStrings = propertyId
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    if (!propertyIdStrings.length) {
+      return res.status(400).json({ success: false, message: 'Property selection is required' });
     }
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    let propertyObjectIds;
+    try {
+      propertyObjectIds = propertyIdStrings.map((id) => new mongoose.Types.ObjectId(id));
+    } catch (error) {
+      return res.status(400).json({ success: false, message: 'Invalid property identifier' });
+    }
 
-    // Get payments with populated data
-    const payments = await Payment.find(filter)
-      .populate('tenant', 'firstName lastName email phone')
-      .populate('metadata.propertyId', 'title address')
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit));
+    const reportYear = parseInt(year, 10);
+    if (Number.isNaN(reportYear)) {
+      return res.status(400).json({ success: false, message: 'Invalid year' });
+    }
 
-    // Get total count for pagination
-    const totalCount = await Payment.countDocuments(filter);
+    const startOfYear = new Date(reportYear, 0, 1);
+    const endOfYear = new Date(reportYear, 11, 31, 23, 59, 59);
 
-    // Calculate summary statistics
-    const summary = await Payment.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: '$amount' },
-          totalCount: { $sum: 1 },
-          averageAmount: { $avg: '$amount' },
-          minAmount: { $min: '$amount' },
-          maxAmount: { $max: '$amount' }
+    const parsedAsOfDate = asOfDate ? new Date(asOfDate) : new Date();
+    const safeAsOfDate = Number.isNaN(parsedAsOfDate.getTime()) ? new Date() : parsedAsOfDate;
+    const cutoffDate = safeAsOfDate > endOfYear ? endOfYear : safeAsOfDate;
+    cutoffDate.setHours(23, 59, 59, 999);
+
+    const properties = await Property.find({ _id: { $in: propertyObjectIds } })
+      .populate('units.tenant', 'firstName lastName email phone');
+
+    if (!properties.length) {
+      return res.status(404).json({ success: false, message: 'No matching properties found' });
+    }
+
+    const propertyIdSet = new Set(propertyObjectIds.map((id) => id.toString()));
+
+    const rawPayments = await Payment.find({
+      status: { $in: ['PENDING', 'OVERDUE'] },
+      $or: [
+        { 'metadata.propertyId': { $in: propertyObjectIds } },
+        { 'metadata.propertyId': { $in: propertyIdStrings } }
+      ]
+    }).populate('tenant', 'firstName lastName email phone');
+
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const parseDueDate = (payment) => {
+      if (payment.metadata?.dueDate) {
+        const parsed = new Date(payment.metadata.dueDate);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
         }
       }
-    ]);
 
-    // Get status breakdown
-    const statusBreakdown = await Payment.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
+      if (payment.metadata?.month) {
+        const [monthName, maybeYear] = payment.metadata.month.split(' ');
+        const parsedYear = parseInt(maybeYear, 10);
+        const effectiveYear = Number.isNaN(parsedYear) ? reportYear : parsedYear;
+        const parsed = new Date(`${monthName} 1, ${effectiveYear}`);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
         }
       }
-    ]);
 
-    // Get property-wise breakdown
-    const propertyBreakdown = await Payment.aggregate([
-      { $match: filter },
-      {
-        $lookup: {
-          from: 'properties',
-          localField: 'metadata.propertyId',
-          foreignField: '_id',
-          as: 'property'
-        }
-      },
-      { $unwind: '$property' },
-      {
-        $group: {
-          _id: '$property.title',
-          count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
+      if (payment.metadata?.dueDateTimestamp) {
+        const parsed = new Date(payment.metadata.dueDateTimestamp);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
         }
       }
-    ]);
 
-    // Format response
-    const formattedPayments = payments.map(payment => ({
-      id: payment._id,
-      tenant: {
-        name: `${payment.tenant.firstName} ${payment.tenant.lastName}`,
-        email: payment.tenant.email,
-        phone: payment.tenant.phone
-      },
-      property: payment.metadata.propertyId.title,
-      unit: payment.metadata.unitId,
-      amount: payment.amount,
-      status: payment.status,
-      dueDate: payment.metadata.dueDate,
-      description: payment.description,
-      method: payment.method,
-      paidDate: payment.paidDate,
-      createdAt: payment.createdAt
-    }));
+      return null;
+    };
+
+    const ensureUnitName = (unit) => {
+      return (
+        unit?.name ||
+        unit?.unit ||
+        unit?.unitName ||
+        unit?.unitNumber ||
+        unit?.title ||
+        (unit?._id ? `Unit ${unit._id.toString().slice(-4)}` : 'Unit')
+      );
+    };
+
+    const dueRentResults = [];
+
+    for (const property of properties) {
+      const propertyIdStr = property._id.toString();
+
+      const monthsAccumulator = Array(12).fill(0);
+      const unitsMap = new Map();
+
+      property.units.forEach((unit) => {
+        const unitKey = unit._id ? unit._id.toString() : ensureUnitName(unit);
+        const tenantName = unit.tenant
+          ? `${unit.tenant.firstName || ''} ${unit.tenant.lastName || ''}`.trim() || unit.tenant.email || '-'
+          : '-';
+
+        unitsMap.set(unitKey, {
+          unitId: unit._id,
+          unitName: ensureUnitName(unit),
+          tenantName: tenantName || '-',
+          months: Array(12).fill(0)
+        });
+      });
+
+      const propertyPayments = rawPayments.filter((payment) => {
+        const metadataPropertyId = payment.metadata?.propertyId;
+        const paymentPropertyIdStr = metadataPropertyId?.toString
+          ? metadataPropertyId.toString()
+          : metadataPropertyId;
+
+        return paymentPropertyIdStr && propertyIdSet.has(paymentPropertyIdStr) && paymentPropertyIdStr === propertyIdStr;
+      });
+
+      propertyPayments.forEach((payment) => {
+        const dueDate = parseDueDate(payment);
+        if (!dueDate) {
+          return;
+        }
+
+        if (dueDate.getFullYear() !== reportYear) {
+          return;
+        }
+
+        if (dueDate < startOfYear || dueDate > cutoffDate) {
+          return;
+        }
+
+        const monthIndex = dueDate.getMonth();
+        const amount = Number(payment.metadata?.originalAmount ?? payment.amount ?? 0);
+
+        monthsAccumulator[monthIndex] += amount;
+
+        const unitKey =
+          payment.metadata?.unitId?.toString?.() ||
+          payment.metadata?.unitNumber ||
+          payment.metadata?.unitName ||
+          'UNKNOWN_UNIT';
+
+        if (!unitsMap.has(unitKey)) {
+          const tenantName = payment.tenant
+            ? `${payment.tenant.firstName || ''} ${payment.tenant.lastName || ''}`.trim() || payment.tenant.email || '-'
+            : '-';
+
+          unitsMap.set(unitKey, {
+            unitId: payment.metadata?.unitId || null,
+            unitName: payment.metadata?.unitNumber
+              ? `Unit ${payment.metadata.unitNumber}`
+              : payment.metadata?.unitName || 'Unit',
+            tenantName: tenantName || '-',
+            months: Array(12).fill(0)
+          });
+        }
+
+        const unitData = unitsMap.get(unitKey);
+
+        if (payment.tenant && (!unitData.tenantName || unitData.tenantName === '-')) {
+          const tenantName = `${payment.tenant.firstName || ''} ${payment.tenant.lastName || ''}`.trim();
+          unitData.tenantName = tenantName || payment.tenant.email || '-';
+        }
+
+        unitData.months[monthIndex] += amount;
+      });
+
+      const units = Array.from(unitsMap.values()).map((unitData) => {
+        const unitMonths = unitData.months.map((value) => Number(value.toFixed(3)));
+        const unitYtd = Number(unitMonths.reduce((sum, value) => sum + value, 0).toFixed(3));
+
+        return {
+          unitId: unitData.unitId,
+          unitName: unitData.unitName,
+          tenantName: unitData.tenantName || '-',
+          summary: {
+            months: unitMonths,
+            ytd: unitYtd
+          }
+        };
+      });
+
+      units.sort((a, b) => (a.unitName || '').localeCompare(b.unitName || ''));
+
+      const propertyMonths = monthsAccumulator.map((value) => Number(value.toFixed(3)));
+      const propertyYtd = Number(propertyMonths.reduce((sum, value) => sum + value, 0).toFixed(3));
+
+      dueRentResults.push({
+        propertyId: property._id,
+        propertyName: property.title,
+        propertyAddress: property.address,
+        summary: {
+          months: propertyMonths,
+          ytd: propertyYtd
+        },
+        units
+      });
+    }
+
+    dueRentResults.sort((a, b) => a.propertyName.localeCompare(b.propertyName));
+
+    const totals = {
+      months: Array(12).fill(0),
+      ytd: 0
+    };
+
+    dueRentResults.forEach((property) => {
+      property.summary.months.forEach((value, index) => {
+        totals.months[index] += value;
+      });
+      totals.ytd += property.summary.ytd;
+    });
+
+    totals.months = totals.months.map((value) => Number(value.toFixed(3)));
+    totals.ytd = Number(totals.ytd.toFixed(3));
 
     res.json({
       success: true,
       data: {
-        payments: formattedPayments,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(totalCount / parseInt(limit)),
-          totalCount,
-          hasNext: skip + payments.length < totalCount,
-          hasPrev: parseInt(page) > 1
-        },
-        summary: summary[0] || {
-          totalAmount: 0,
-          totalCount: 0,
-          averageAmount: 0,
-          minAmount: 0,
-          maxAmount: 0
-        },
-        breakdown: {
-          status: statusBreakdown,
-          property: propertyBreakdown
-        }
+        year: reportYear,
+        asOfDate: cutoffDate.toISOString().split('T')[0],
+        monthLabels,
+        totals,
+        properties: dueRentResults
       }
     });
-
   } catch (error) {
     console.error('Due rent report error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Failed to generate due rent report',
-      error: error.message 
+      error: error.message
     });
   }
 });

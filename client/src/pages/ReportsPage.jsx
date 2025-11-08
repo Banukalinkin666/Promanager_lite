@@ -9,9 +9,11 @@ import {
   Building,
   User,
   ChevronDown,
+  ChevronRight,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2
 } from 'lucide-react';
 import api from '../lib/api.js';
 
@@ -40,6 +42,17 @@ const ReportsPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  const currentYear = new Date().getFullYear();
+  const [properties, setProperties] = useState([]);
+  const [dueRentFilters, setDueRentFilters] = useState({
+    propertyIds: [],
+    year: currentYear.toString(),
+    asOfDate: new Date().toISOString().split('T')[0]
+  });
+  const [dueRentData, setDueRentData] = useState(null);
+  const [dueRentLoading, setDueRentLoading] = useState(false);
+  const [expandedDueRentProperties, setExpandedDueRentProperties] = useState({});
+
   // Fetch data based on active report
   const fetchReportData = async () => {
     setLoading(true);
@@ -54,12 +67,35 @@ const ReportsPage = () => {
   };
 
   useEffect(() => {
+    if (activeReport === 'due-rent') return;
     fetchReportData();
   }, [activeReport, filters.page]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   };
+
+  useEffect(() => {
+    const loadProperties = async () => {
+      try {
+        const response = await api.get('/properties');
+        setProperties(response.data || []);
+      } catch (error) {
+        console.error('Error loading properties:', error);
+      }
+    };
+
+    loadProperties();
+  }, []);
+
+  useEffect(() => {
+    if (properties.length > 0 && dueRentFilters.propertyIds.length === 0) {
+      setDueRentFilters(prev => ({
+        ...prev,
+        propertyIds: [properties[0]._id]
+      }));
+    }
+  }, [properties, dueRentFilters.propertyIds.length]);
 
   const handleSearch = () => {
     fetchReportData();
@@ -82,14 +118,105 @@ const ReportsPage = () => {
     });
   };
 
+  const handleDueRentFilterChange = (key, value) => {
+    setDueRentFilters(prev => {
+      const updated = { ...prev, [key]: value };
+
+      if (key === 'year' && value) {
+        const minDateForYear = `${value}-01-01`;
+        const maxDateForYear = `${value}-12-31`;
+        const todayStr = new Date().toISOString().split('T')[0];
+        let clampedDate = updated.asOfDate;
+
+        if (!clampedDate || clampedDate < minDateForYear || clampedDate > maxDateForYear) {
+          clampedDate = todayStr > maxDateForYear ? maxDateForYear : todayStr < minDateForYear ? minDateForYear : todayStr;
+        }
+
+        updated.asOfDate = clampedDate;
+      }
+
+      return updated;
+    });
+    setExpandedDueRentProperties({});
+    setDueRentData(null);
+  };
+
+  const fetchDueRentReport = async () => {
+    if (!dueRentFilters.propertyIds.length || !dueRentFilters.year) {
+      console.warn('Property and year are required for the due rent report');
+      return;
+    }
+
+    setDueRentLoading(true);
+    try {
+      const params = {
+        propertyId: dueRentFilters.propertyIds.join(','),
+        year: dueRentFilters.year,
+        asOfDate: dueRentFilters.asOfDate
+      };
+
+      const response = await api.get('/reports/due-rent', { params });
+      if (response.data?.success) {
+        setDueRentData(response.data.data);
+        setExpandedDueRentProperties({});
+      } else {
+        setDueRentData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching due rent report:', error);
+      setDueRentData(null);
+    } finally {
+      setDueRentLoading(false);
+    }
+  };
+
+  const toggleDueRentProperty = (propertyId) => {
+    setExpandedDueRentProperties(prev => ({
+      ...prev,
+      [propertyId]: !prev[propertyId]
+    }));
+  };
+
+  const formatDueRentAmount = (value = 0) => {
+    const amount = Number(value) || 0;
+    return amount.toFixed(3);
+  };
+
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const yearOptions = Array.from({ length: 7 }, (_, index) => (currentYear - 3 + index).toString());
+  const asOfMinDate = `${dueRentFilters.year}-01-01`;
+  const asOfMaxDate = `${dueRentFilters.year}-12-31`;
+  const dueRentMonthLabels = dueRentData?.monthLabels || monthLabels;
+  const dueRentProperties = dueRentData?.properties || [];
+  const dueRentTotals = dueRentData?.totals || { months: Array(12).fill(0), ytd: 0 };
+
   const handleExport = async (format) => {
+    if (activeReport === 'due-rent' && (!dueRentFilters.propertyIds.length || !dueRentFilters.year)) {
+      console.warn('Property and year are required to export the due rent report');
+      return;
+    }
+
     setExporting(true);
     try {
-      const response = await api.get(`/reports/${activeReport}/export/${format}`, { 
-        params: filters,
+      const endpoint =
+        activeReport === 'due-rent'
+          ? `/reports/due-rent/export/${format}`
+          : `/reports/${activeReport}/export/${format}`;
+
+      const params =
+        activeReport === 'due-rent'
+          ? {
+              propertyId: dueRentFilters.propertyIds.join(','),
+              year: dueRentFilters.year,
+              asOfDate: dueRentFilters.asOfDate
+            }
+          : filters;
+
+      const response = await api.get(endpoint, {
+        params,
         responseType: 'blob'
       });
-      
+
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -148,27 +275,108 @@ const ReportsPage = () => {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">Generate and export professional reports</p>
             </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Filters
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </button>
-              <button
-                onClick={handleSearch}
-                disabled={loading}
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                <Search className="w-4 h-4 mr-2" />
-                {loading ? 'Loading...' : 'Search'}
-              </button>
-            </div>
+            {activeReport !== 'due-rent' && (
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filters
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </button>
+                <button
+                  onClick={handleSearch}
+                  disabled={loading}
+                  className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  {loading ? 'Loading...' : 'Search'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {activeReport === 'due-rent' && (
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Property *
+                </label>
+                <select
+                  multiple
+                  value={dueRentFilters.propertyIds}
+                  onChange={(e) => {
+                    const selectedValues = Array.from(e.target.selectedOptions).map(option => option.value);
+                    handleDueRentFilterChange('propertyIds', selectedValues);
+                  }}
+                  className="w-full min-h-[120px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {properties.map(property => (
+                    <option key={property._id} value={property._id}>
+                      {property.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hold Ctrl/Cmd to select multiple properties.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Year *
+                </label>
+                <select
+                  value={dueRentFilters.year}
+                  onChange={(e) => handleDueRentFilterChange('year', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {yearOptions.map(yearOption => (
+                    <option key={yearOption} value={yearOption}>{yearOption}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  As of Date
+                </label>
+                <input
+                  type="date"
+                  value={dueRentFilters.asOfDate}
+                  min={asOfMinDate}
+                  max={asOfMaxDate}
+                  onChange={(e) => handleDueRentFilterChange('asOfDate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Report generated up to the selected date.</p>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  onClick={fetchDueRentReport}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                >
+                  {dueRentLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Generate Report
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex">
         {/* Sidebar Navigation */}
@@ -250,7 +458,7 @@ const ReportsPage = () => {
           )}
 
           {/* Filters Panel */}
-          {showFilters && (
+          {activeReport !== 'due-rent' && showFilters && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
@@ -474,7 +682,7 @@ const ReportsPage = () => {
           )}
 
           {/* Summary Cards */}
-          {data?.summary && (
+          {activeReport !== 'due-rent' && data?.summary && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center">
@@ -532,31 +740,33 @@ const ReportsPage = () => {
           )}
 
           {/* Export Buttons */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
-            <div className="p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Export Options</h3>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => handleExport('excel')}
-                    disabled={exporting}
-                    className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    {exporting ? 'Exporting...' : 'Export Excel'}
-                  </button>
-                  <button
-                    onClick={() => handleExport('pdf')}
-                    disabled={exporting}
-                    className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    {exporting ? 'Exporting...' : 'Export PDF'}
-                  </button>
+          {activeReport !== 'due-rent' && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+              <div className="p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Export Options</h3>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => handleExport('excel')}
+                      disabled={exporting}
+                      className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      {exporting ? 'Exporting...' : 'Export Excel'}
+                    </button>
+                    <button
+                      onClick={() => handleExport('pdf')}
+                      disabled={exporting}
+                      className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      {exporting ? 'Exporting...' : 'Export PDF'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Data Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
@@ -573,87 +783,217 @@ const ReportsPage = () => {
               </h3>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Tenant
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Property
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Unit
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Due Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Description
-                    </th>
-                    {activeReport === 'uncollected-rent' && (
+              {activeReport === 'due-rent' ? (
+                dueRentLoading ? (
+                  <div className="flex items-center justify-center py-12 text-gray-500 dark:text-gray-300">
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Generating due rent report...
+                  </div>
+                ) : dueRentProperties.length ? (
+                  <div className="min-w-full">
+                    <div className="px-6 py-3 text-sm text-gray-600 dark:text-gray-300">
+                      Reporting year {dueRentData?.year} • As of {dueRentData?.asOfDate}
+                    </div>
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-16">
+                            No
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Property
+                          </th>
+                          {dueRentMonthLabels.map((monthLabel) => (
+                            <th
+                              key={`due-rent-header-${monthLabel}`}
+                              className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                            >
+                              {monthLabel}
+                            </th>
+                          ))}
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            YTD
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {dueRentProperties.map((property, index) => {
+                          const propertyIdStr = property.propertyId?.toString
+                            ? property.propertyId.toString()
+                            : property.propertyId || property.propertyName;
+                          const isExpanded = !!expandedDueRentProperties[propertyIdStr];
+                          const hasUnits = property.units && property.units.length > 0;
+
+                          return (
+                            <React.Fragment key={propertyIdStr}>
+                              <tr className="bg-gray-50 dark:bg-gray-700">
+                                <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{index + 1}</td>
+                                <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                                  <button
+                                    type="button"
+                                    className={`flex items-center gap-2 focus:outline-none ${hasUnits ? 'text-blue-600 dark:text-blue-300 hover:underline' : ''}`}
+                                    onClick={() => hasUnits && toggleDueRentProperty(propertyIdStr)}
+                                  >
+                                    {hasUnits ? (
+                                      isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+                                    ) : (
+                                      <span className="w-4 h-4" />
+                                    )}
+                                    <span className="font-semibold">{property.propertyName}</span>
+                                  </button>
+                                  {property.propertyAddress && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                      {property.propertyAddress}
+                                    </div>
+                                  )}
+                                </td>
+                                {dueRentMonthLabels.map((_, monthIndex) => (
+                                  <td
+                                    key={`${propertyIdStr}-summary-${monthIndex}`}
+                                    className="px-4 py-4 text-right text-sm font-semibold text-gray-900 dark:text-white"
+                                  >
+                                    {formatDueRentAmount(property.summary?.months?.[monthIndex] || 0)}
+                                  </td>
+                                ))}
+                                <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                                  {formatDueRentAmount(property.summary?.ytd || 0)}
+                                </td>
+                              </tr>
+
+                              {isExpanded && property.units?.map((unit, unitIndex) => (
+                                <tr key={`${propertyIdStr}-unit-${unit.unitId || unitIndex}`} className="bg-white dark:bg-gray-900">
+                                  <td className="px-6 py-3" />
+                                  <td className="px-6 py-3 text-sm text-gray-900 dark:text-white">
+                                    <div className="font-medium">Unit: {unit.unitName}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">Tenant: {unit.tenantName || '-'}</div>
+                                  </td>
+                                  {dueRentMonthLabels.map((_, monthIndex) => (
+                                    <td
+                                      key={`${propertyIdStr}-unit-${unit.unitId || unitIndex}-${monthIndex}`}
+                                      className="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300"
+                                    >
+                                      {formatDueRentAmount(unit.summary?.months?.[monthIndex] || 0)}
+                                    </td>
+                                  ))}
+                                  <td className="px-6 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">
+                                    {formatDueRentAmount(unit.summary?.ytd || 0)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-gray-100 dark:bg-gray-900">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white" colSpan={2}>
+                            Total Due Rent
+                          </th>
+                          {dueRentMonthLabels.map((_, monthIndex) => (
+                            <th
+                              key={`due-rent-total-${monthIndex}`}
+                              className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white"
+                            >
+                              {formatDueRentAmount(dueRentTotals.months?.[monthIndex] || 0)}
+                            </th>
+                          ))}
+                          <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                            {formatDueRentAmount(dueRentTotals.ytd || 0)}
+                          </th>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    {dueRentFilters.propertyIds.length
+                      ? 'No due rent found for the selected criteria.'
+                      : 'Select a property and year, then generate the report.'}
+                  </div>
+                )
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Days Overdue
+                        Tenant
                       </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {data?.payments?.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {payment.tenant.name}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {payment.tenant.email}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {payment.property}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {payment.unit}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(payment.amount)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(payment.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {formatDate(payment.dueDate)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                        {payment.description}
-                      </td>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Property
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Unit
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Due Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Description
+                      </th>
                       {activeReport === 'uncollected-rent' && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {payment.daysOverdue > 0 ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
-                              {payment.daysOverdue} days
-                            </span>
-                          ) : (
-                            <span className="text-gray-500 dark:text-gray-400">-</span>
-                          )}
-                        </td>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Days Overdue
+                        </th>
                       )}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {data?.payments?.map((payment) => (
+                      <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {payment.tenant.name}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {payment.tenant.email}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          {payment.property}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          {payment.unit}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {formatCurrency(payment.amount)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(payment.status)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          {formatDate(payment.dueDate)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                          {payment.description}
+                        </td>
+                        {activeReport === 'uncollected-rent' && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {payment.daysOverdue > 0 ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
+                                {payment.daysOverdue} days
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 dark:text-gray-400">-</span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {/* Pagination */}
-            {data?.pagination && (
+            {activeReport !== 'due-rent' && data?.pagination && (
               <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700 dark:text-gray-300">
