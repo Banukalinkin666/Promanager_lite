@@ -150,7 +150,10 @@ const ReportsPage = () => {
     setDueRentLoading(true);
     try {
       const params = {
-        propertyId: dueRentFilters.propertyIds.join(','),
+        propertyId:
+          dueRentFilters.propertyIds.length === 0 || dueRentFilters.propertyIds[0] === 'ALL'
+            ? ''
+            : dueRentFilters.propertyIds.join(','),
         year: dueRentFilters.year,
         asOfDate: dueRentFilters.asOfDate
       };
