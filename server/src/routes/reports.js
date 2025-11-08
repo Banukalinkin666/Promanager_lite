@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
+import ExcelJS from 'exceljs';
 import Property from '../models/Property.js';
 import Payment from '../models/Payment.js';
 import Lease from '../models/Lease.js';
@@ -302,30 +303,83 @@ router.get('/due-rent/export/excel', authenticate, async (req, res) => {
       .populate('metadata.propertyId', 'title address')
       .sort({ 'metadata.dueDate': 1 });
 
-    // Format for Excel export
-    const excelData = payments.map(payment => ({
-      'Tenant Name': `${payment.tenant.firstName} ${payment.tenant.lastName}`,
-      'Property': payment.metadata.propertyId.title,
-      'Unit': payment.metadata.unitId,
-      'Amount': payment.amount,
-      'Status': payment.status,
-      'Due Date': payment.metadata.dueDate,
-      'Description': payment.description,
-      'Payment Method': payment.method,
-      'Paid Date': payment.paidDate,
-      'Created Date': payment.createdAt
-    }));
+    const workbook = new ExcelJS.Workbook();
+    workbook.created = new Date();
+    workbook.modified = new Date();
 
-    // Set headers for Excel download
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="due-rent-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
+    const worksheet = workbook.addWorksheet('Due Rent');
+    worksheet.columns = [
+      { header: 'Tenant Name', key: 'tenantName', width: 28 },
+      { header: 'Property', key: 'property', width: 28 },
+      { header: 'Unit', key: 'unit', width: 16 },
+      { header: 'Amount', key: 'amount', width: 14 },
+      { header: 'Status', key: 'status', width: 14 },
+      { header: 'Due Date', key: 'dueDate', width: 16 },
+      { header: 'Description', key: 'description', width: 32 },
+      { header: 'Payment Method', key: 'method', width: 18 },
+      { header: 'Paid Date', key: 'paidDate', width: 16 },
+      { header: 'Created Date', key: 'createdDate', width: 16 }
+    ];
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
-    // For now, return JSON (you can implement actual Excel generation later)
-    res.json({
-      success: true,
-      message: 'Excel export functionality will be implemented',
-      data: excelData
+    let totalAmount = 0;
+
+    payments.forEach(payment => {
+      const tenantName = payment.tenant
+        ? `${payment.tenant.firstName || ''} ${payment.tenant.lastName || ''}`.trim() ||
+          payment.tenant.email ||
+          payment.tenant.phone ||
+          '-'
+        : '-';
+
+      const unitIdentifier =
+        payment.metadata?.unitNumber ||
+        payment.metadata?.unitName ||
+        (payment.metadata?.unitId?.toString ? payment.metadata.unitId.toString() : payment.metadata?.unitId) ||
+        '';
+
+      const dueDateValue = payment.metadata?.dueDate ? new Date(payment.metadata.dueDate) : null;
+
+      worksheet.addRow({
+        tenantName,
+        property: payment.metadata?.propertyId?.title || 'N/A',
+        unit: unitIdentifier,
+        amount: Number(payment.amount || 0),
+        status: payment.status || '',
+        dueDate: dueDateValue,
+        description: payment.description || '',
+        method: payment.method || '',
+        paidDate: payment.paidDate ? new Date(payment.paidDate) : null,
+        createdDate: payment.createdAt ? new Date(payment.createdAt) : null
+      });
+
+      totalAmount += Number(payment.amount || 0);
     });
+
+    worksheet.getColumn('amount').numFmt = '#,##0.00';
+    worksheet.getColumn('dueDate').numFmt = 'yyyy-mm-dd';
+    worksheet.getColumn('paidDate').numFmt = 'yyyy-mm-dd';
+    worksheet.getColumn('createdDate').numFmt = 'yyyy-mm-dd';
+
+    if (payments.length > 0) {
+      const totalRow = worksheet.addRow({
+        tenantName: 'Total',
+        amount: totalAmount
+      });
+      totalRow.font = { bold: true };
+      totalRow.getCell('tenantName').alignment = { horizontal: 'right' };
+    } else {
+      worksheet.addRow(['No records found for the selected filters.']);
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="due-rent-report-${new Date().toISOString().split('T')[0]}.xlsx"`
+    );
+    await workbook.xlsx.write(res);
+    res.end();
 
   } catch (error) {
     console.error('Excel export error:', error);
@@ -713,32 +767,93 @@ router.get('/uncollected-rent/export/excel', authenticate, async (req, res) => {
       .populate('metadata.propertyId', 'title address')
       .sort({ 'metadata.dueDate': 1 });
 
-    // Format for Excel export
-    const excelData = payments.map(payment => ({
-      'Tenant Name': `${payment.tenant.firstName} ${payment.tenant.lastName}`,
-      'Property': payment.metadata.propertyId.title,
-      'Unit': payment.metadata.unitId,
-      'Amount': payment.amount,
-      'Status': payment.status,
-      'Due Date': payment.metadata.dueDate,
-      'Description': payment.description,
-      'Payment Method': payment.method,
-      'Paid Date': payment.paidDate,
-      'Created Date': payment.createdAt,
-      'Days Overdue': payment.status === 'OVERDUE' ? 
-        Math.floor((new Date() - new Date(payment.metadata.dueDate)) / (1000 * 60 * 60 * 24)) : 0
-    }));
+    const workbook = new ExcelJS.Workbook();
+    workbook.created = new Date();
+    workbook.modified = new Date();
 
-    // Set headers for Excel download
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="uncollected-rent-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
+    const worksheet = workbook.addWorksheet('Uncollected Rent');
+    worksheet.columns = [
+      { header: 'Tenant Name', key: 'tenantName', width: 28 },
+      { header: 'Property', key: 'property', width: 28 },
+      { header: 'Unit', key: 'unit', width: 16 },
+      { header: 'Amount', key: 'amount', width: 14 },
+      { header: 'Status', key: 'status', width: 14 },
+      { header: 'Due Date', key: 'dueDate', width: 16 },
+      { header: 'Description', key: 'description', width: 32 },
+      { header: 'Payment Method', key: 'method', width: 18 },
+      { header: 'Paid Date', key: 'paidDate', width: 16 },
+      { header: 'Created Date', key: 'createdDate', width: 16 },
+      { header: 'Days Overdue', key: 'daysOverdue', width: 16 }
+    ];
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
-    // For now, return JSON (you can implement actual Excel generation later)
-    res.json({
-      success: true,
-      message: 'Excel export functionality will be implemented',
-      data: excelData
+    let totalAmount = 0;
+
+    payments.forEach(payment => {
+      const tenantName = payment.tenant
+        ? `${payment.tenant.firstName || ''} ${payment.tenant.lastName || ''}`.trim() ||
+          payment.tenant.email ||
+          payment.tenant.phone ||
+          '-'
+        : '-';
+
+      const unitIdentifier =
+        payment.metadata?.unitNumber ||
+        payment.metadata?.unitName ||
+        (payment.metadata?.unitId?.toString ? payment.metadata.unitId.toString() : payment.metadata?.unitId) ||
+        '';
+
+      const dueDateValue = payment.metadata?.dueDate ? new Date(payment.metadata.dueDate) : null;
+      const daysOverdue =
+        payment.status === 'OVERDUE' && dueDateValue
+          ? Math.max(
+              Math.floor((new Date().setHours(0, 0, 0, 0) - dueDateValue.setHours(0, 0, 0, 0)) /
+                (1000 * 60 * 60 * 24)),
+              0
+            )
+          : 0;
+
+      worksheet.addRow({
+        tenantName,
+        property: payment.metadata?.propertyId?.title || 'N/A',
+        unit: unitIdentifier,
+        amount: Number(payment.amount || 0),
+        status: payment.status || '',
+        dueDate: dueDateValue,
+        description: payment.description || '',
+        method: payment.method || '',
+        paidDate: payment.paidDate ? new Date(payment.paidDate) : null,
+        createdDate: payment.createdAt ? new Date(payment.createdAt) : null,
+        daysOverdue
+      });
+
+      totalAmount += Number(payment.amount || 0);
     });
+
+    worksheet.getColumn('amount').numFmt = '#,##0.00';
+    worksheet.getColumn('dueDate').numFmt = 'yyyy-mm-dd';
+    worksheet.getColumn('paidDate').numFmt = 'yyyy-mm-dd';
+    worksheet.getColumn('createdDate').numFmt = 'yyyy-mm-dd';
+
+    if (payments.length > 0) {
+      const totalRow = worksheet.addRow({
+        tenantName: 'Total',
+        amount: totalAmount
+      });
+      totalRow.font = { bold: true };
+      totalRow.getCell('tenantName').alignment = { horizontal: 'right' };
+    } else {
+      worksheet.addRow(['No records found for the selected filters.']);
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="uncollected-rent-report-${new Date().toISOString().split('T')[0]}.xlsx"`
+    );
+    await workbook.xlsx.write(res);
+    res.end();
 
   } catch (error) {
     console.error('Excel export error:', error);
@@ -860,13 +975,125 @@ router.get('/property-management', authenticate, async (req, res) => {
         });
     }
 
-    res.json({
-      success: true,
-      data: {
-        reportType,
-        ...data
+    const workbook = new ExcelJS.Workbook();
+    workbook.created = new Date();
+    workbook.modified = new Date();
+
+    if (reportType === 'income-expenses') {
+      const { monthLabels = [], properties = [], totals = {} } = data;
+      const worksheet = workbook.addWorksheet('Income & Expenses');
+      const headers = ['Property', 'Metric', ...monthLabels, 'YTD'];
+      worksheet.addRow(headers).font = { bold: true };
+      worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+      const metrics = [
+        { label: 'Total Income Approved Budget', key: 'budget' },
+        { label: 'Total Due Rent', key: 'dueRent' },
+        { label: 'Total Occupancy Collection', key: 'collected' },
+        { label: 'Total Rent Variance', key: 'variance' }
+      ];
+
+      properties.forEach(property => {
+        metrics.forEach(metric => {
+          const values = property[metric.key] || { months: Array(12).fill(0), ytd: 0 };
+          const row = [
+            property.propertyName,
+            metric.label,
+            ...monthLabels.map((_, idx) => Number(values.months?.[idx] ?? 0)),
+            Number(values.ytd ?? 0)
+          ];
+          worksheet.addRow(row);
+        });
+        worksheet.addRow([]);
+      });
+
+      if (properties.length > 0) {
+        const totalsMetrics = [
+          { label: 'Grand Total Approved Budget', data: totals.budget },
+          { label: 'Grand Total Due Rent', data: totals.dueRent },
+          { label: 'Grand Total Occupancy Collection', data: totals.collected },
+          { label: 'Grand Total Rent Variance', data: totals.variance }
+        ];
+
+        totalsMetrics.forEach(metric => {
+          const values = metric.data || { months: Array(12).fill(0), ytd: 0 };
+          const row = [
+            'Totals',
+            metric.label,
+            ...monthLabels.map((_, idx) => Number(values.months?.[idx] ?? 0)),
+            Number(values.ytd ?? 0)
+          ];
+          const totalsRow = worksheet.addRow(row);
+          totalsRow.font = { bold: true };
+        });
+      } else {
+        worksheet.addRow(['No income & expenses data available for the selected filters.']);
       }
-    });
+
+      worksheet.getColumn(1).width = 32;
+      worksheet.getColumn(2).width = 34;
+      for (let col = 3; col <= headers.length; col += 1) {
+        worksheet.getColumn(col).width = 14;
+        worksheet.getColumn(col).numFmt = '#,##0.000';
+      }
+    } else {
+      const { properties = [], totals = {}, asOfDate: occupancyAsOf } = data;
+      const worksheet = workbook.addWorksheet('Occupancy By Property');
+      const columns = ['Property', 'Total Units', 'Units Occupied', 'Units Under Maintenance', 'Units Vacant', 'Occupancy %'];
+
+      const formattedDate = occupancyAsOf
+        ? new Date(occupancyAsOf).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      const infoRowNumber = worksheet.addRow([`As of ${formattedDate}`]).number;
+      worksheet.mergeCells(infoRowNumber, 1, infoRowNumber, columns.length);
+      worksheet.getCell(infoRowNumber, 1).font = { bold: true };
+
+      const headerRow = worksheet.addRow(columns);
+      headerRow.font = { bold: true };
+      worksheet.views = [{ state: 'frozen', ySplit: 2 }];
+
+      properties.forEach(property => {
+        worksheet.addRow([
+          property.propertyName,
+          property.totalUnits,
+          property.occupiedUnits,
+          property.maintenanceUnits,
+          property.vacantUnits,
+          (property.occupancyRate ?? 0) / 100
+        ]);
+      });
+
+      if (properties.length > 0) {
+        const totalsRow = worksheet.addRow([
+          'Totals',
+          totals.totalUnits ?? 0,
+          totals.occupiedUnits ?? 0,
+          totals.maintenanceUnits ?? 0,
+          totals.vacantUnits ?? 0,
+          (totals.occupancyRate ?? 0) / 100
+        ]);
+        totalsRow.font = { bold: true };
+      } else {
+        worksheet.addRow(['No occupancy data available for the selected filters.']);
+      }
+
+      worksheet.getColumn(1).width = 32;
+      worksheet.getColumn(2).width = 16;
+      worksheet.getColumn(3).width = 18;
+      worksheet.getColumn(4).width = 24;
+      worksheet.getColumn(5).width = 16;
+      worksheet.getColumn(6).width = 16;
+      worksheet.getColumn(6).numFmt = '0.000%';
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="property-management-${reportType}-${new Date().toISOString().split('T')[0]}.xlsx"`
+    );
+    await workbook.xlsx.write(res);
+    res.end();
 
   } catch (error) {
     console.error('Property management report error:', error);
