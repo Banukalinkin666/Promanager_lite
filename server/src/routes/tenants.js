@@ -73,9 +73,10 @@ router.get('/', authenticate, authorize('OWNER', 'ADMIN'), async (_req, res) => 
 });
 
 // Get all users (ADMIN only) - MUST be before /:id route
+// Excludes SUPER_ADMIN - super admin accounts are hidden from user management
 router.get('/all', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
-    const users = await User.find({}).select('-passwordHash');
+    const users = await User.find({ role: { $ne: 'SUPER_ADMIN' } }).select('-passwordHash');
     res.json(users);
   } catch (error) {
     console.error('Error fetching all users:', error);

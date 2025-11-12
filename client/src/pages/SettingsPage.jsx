@@ -73,6 +73,11 @@ export default function SettingsPage() {
   }, [activeTab, user?.role]);
 
   const filteredUsers = users.filter(userItem => {
+    // Hide SUPER_ADMIN from user management - only visible to developer
+    if (userItem.role === 'SUPER_ADMIN') {
+      return false;
+    }
+    
     const matchesSearch = !searchTerm || 
       userItem.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       userItem.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
