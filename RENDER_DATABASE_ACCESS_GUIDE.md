@@ -4,7 +4,9 @@ This guide explains how to access your MongoDB database directly through Render'
 
 ---
 
-## Method 1: Using Render Shell (Recommended)
+## Method 1: Using Node.js Script (Recommended - Easiest)
+
+**Note:** `mongosh` is not installed in the backend service. Use this Node.js script instead.
 
 ### Step 1: Access Your Backend Service
 1. Log in to Render Dashboard: https://dashboard.render.com
@@ -16,41 +18,93 @@ This guide explains how to access your MongoDB database directly through Render'
 2. Click on **"Shell"** or **"Open Shell"**
 3. A terminal window will open in your browser
 
-### Step 3: Connect to MongoDB
+### Step 3: Navigate to Server Directory
+Type this command:
+```bash
+cd server
+```
+
+### Step 4: Run Database Access Script
 
 **Important: Copy/Paste in Render Shell**
 
-Render's web shell may not support standard copy/paste. Here are solutions:
-
-**Method A: Right-Click Paste**
-- Right-click in the shell window
-- Select "Paste" from the context menu
+Render's web shell may not support standard copy/paste. Try:
+- **Right-click** in the shell → Select "Paste"
 - Or use `Ctrl + Shift + V` (Windows/Linux) or `Cmd + V` (Mac)
+- Or type commands manually
 
-**Method B: Type Manually**
-- Type the command manually (it's short):
-  ```
-  mongosh "mongodb://spm-mongodb:27017/smart_property_manager"
-  ```
+**Available Commands:**
 
-**Method C: Use Browser Developer Tools**
-- Press `F12` to open browser developer tools
-- Go to Console tab
-- You can copy/paste there, then manually type in shell
-
-**Method D: Use a Text Editor**
-- Copy commands to a text editor (Notepad, etc.)
-- Keep it open and type commands manually while referencing it
-
-1. In the shell, type the following command:
+1. **Check Database Counts:**
    ```bash
-   mongosh "mongodb://spm-mongodb:27017/smart_property_manager"
+   node scripts/db-access.js counts
    ```
-2. Press Enter
-3. You should see a MongoDB shell prompt like: `smart_property_manager>`
+   This shows counts for all collections (users, properties, payments, etc.)
 
-### Step 4: Use MongoDB Commands
-Now you can run MongoDB commands. Here are some useful commands:
+2. **List All Users:**
+   ```bash
+   node scripts/db-access.js users
+   ```
+   Shows all users with their roles and status
+
+3. **List All Properties:**
+   ```bash
+   node scripts/db-access.js properties
+   ```
+   Shows all properties with unit counts
+
+4. **Clear All Tenant Users:**
+   ```bash
+   node scripts/db-access.js clear-tenants
+   ```
+   Deletes all users with role 'TENANT'
+
+5. **Clear All Data (Except Admins):**
+   ```bash
+   node scripts/db-access.js clear-all
+   ```
+   Clears all properties, payments, invoices, leases, and non-admin users
+
+### Example Output:
+```
+✅ Connected to MongoDB
+
+📊 Database Counts:
+──────────────────────────────────────────────────
+Users: 15
+  - Admins: 1
+  - Owners: 2
+  - Tenants: 12
+Properties: 3
+Payments: 45
+Invoices: 30
+Leases: 12
+
+✅ Disconnected from MongoDB
+```
+
+---
+
+## Method 2: Using MongoDB Shell (If mongosh is installed)
+
+**Note:** This method requires `mongosh` to be installed. If you get "command not found", use Method 1 instead.
+
+### Step 1-2: Same as Method 1
+
+### Step 3: Install mongosh (if needed)
+If `mongosh` is not available, you can try installing it:
+```bash
+apk add mongodb-tools  # For Alpine Linux
+```
+Or use Method 1 (Node.js script) which is easier.
+
+### Step 4: Connect to MongoDB
+```bash
+mongosh "mongodb://spm-mongodb:27017/smart_property_manager"
+```
+
+### Step 5: Use MongoDB Commands
+Here are some useful commands:
 
 #### View All Collections
 ```javascript
@@ -245,6 +299,37 @@ db.payments.countDocuments({ status: 'FAILED' })
 
 ---
 
+## Method 3: Using API Endpoints (Easiest - No Shell Needed)
+
+You can access database information through your API endpoints without using the shell at all!
+
+### Step 1: Get Your Backend URL
+Your backend URL is: `https://spm-backend.onrender.com`
+
+### Step 2: Use API Endpoints
+
+**1. Check Database Counts:**
+Open in your browser or use a tool like Postman:
+```
+https://spm-backend.onrender.com/api/data-counts
+```
+
+**2. Clear Property Data (via API):**
+```
+https://spm-backend.onrender.com/api/clear-property-data
+```
+
+**3. List All Users:**
+```
+https://spm-backend.onrender.com/api/count-users
+```
+
+**Note:** These endpoints may require authentication. If you get an error, you may need to:
+- Log in to your application first
+- Or use the Node.js script method (Method 1) which handles authentication automatically
+
+---
+
 ## Clear All Data (Fresh Start)
 
 **⚠️ WARNING: This will delete ALL data except admin users!**
@@ -332,11 +417,15 @@ All should return `0` except `users` (which should only have admin accounts).
 - Check service status in Render dashboard
 - Ensure service name is correct: `spm-mongodb`
 
-### Issue: Command Not Found
+### Issue: Command Not Found (mongosh: not found)
 **Solution:**
-- Ensure `mongosh` is installed in the backend service
-- Try using `mongo` instead of `mongosh` (older MongoDB versions)
-- Check MongoDB version in your Dockerfile
+- `mongosh` is **not installed** in the backend service by default
+- **Use Method 1 (Node.js script)** instead - it's easier and doesn't require mongosh
+- If you really need mongosh, you can try installing it:
+  ```bash
+  apk add mongodb-tools  # For Alpine Linux (Node.js image)
+  ```
+  But the Node.js script method is recommended as it's already set up
 
 ### Issue: Permission Denied
 **Solution:**
@@ -367,12 +456,23 @@ All should return `0` except `users` (which should only have admin accounts).
 - `invoices` - Invoice records
 - `leases` - Lease agreements
 
-**Common Commands (Easy to Type):**
+**Easiest Method - Node.js Script (Recommended):**
+
+1. Open Render Shell for `spm-backend` service
+2. Type: `cd server`
+3. Run any of these commands:
+   - `node scripts/db-access.js counts` - Show all counts
+   - `node scripts/db-access.js users` - List all users
+   - `node scripts/db-access.js properties` - List all properties
+   - `node scripts/db-access.js clear-tenants` - Clear tenant users
+   - `node scripts/db-access.js clear-all` - Clear all data except admins
+
+**Alternative - MongoDB Shell Commands (if mongosh is available):**
 ```javascript
 // Connect to database
 mongosh "mongodb://spm-mongodb:27017/smart_property_manager"
 
-// Quick checks (short commands)
+// Quick checks
 show collections
 db.users.countDocuments()
 db.properties.countDocuments()
@@ -392,13 +492,9 @@ exit
 ```
 
 **Tip for Copy/Paste Issues:**
-Since copy/paste may not work, here are the shortest commands you'll need:
-
-1. **Connect:** `mongosh "mongodb://spm-mongodb:27017/smart_property_manager"`
-2. **Check counts:** `db.users.countDocuments()` (then press Enter, repeat for other collections)
-3. **View users:** `db.users.find().pretty()`
-4. **Clear tenants:** `db.users.deleteMany({ role: 'TENANT' })`
-5. **Clear all:** Type each delete command one at a time
+- Right-click in shell → Select "Paste"
+- Or use `Ctrl + Shift + V` (Windows/Linux) or `Cmd + V` (Mac)
+- Or type commands manually (Node.js script commands are short and easy to type)
 
 ---
 
