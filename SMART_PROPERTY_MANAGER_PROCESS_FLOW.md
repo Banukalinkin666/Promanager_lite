@@ -1,8 +1,16 @@
 # Smart Property Manager - Process Flow Documentation
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** November 2025  
 **System URL:** https://spm-frontend-dfju.onrender.com/
+
+## Introduction
+
+This document provides step-by-step instructions for using the Smart Property Manager system. It covers both administrative processes (for property managers, admins, and owners) and tenant self-service features.
+
+**For Property Managers/Admins/Owners:** Processes 1-5 cover creating tenants, properties, units, managing move-ins, and collecting payments.
+
+**For Tenants:** Processes 6-7 cover how tenants can pay rent online and view their lease details and history through their own login account.
 
 ---
 
@@ -13,6 +21,8 @@
 3. [How to Create a Unit](#3-how-to-create-a-unit)
 4. [How to Add Move-In](#4-how-to-add-move-in)
 5. [How to Collect Payment](#5-how-to-collect-payment)
+6. [How Tenants Pay Online (Tenant Self-Service)](#6-how-tenants-pay-online-tenant-self-service)
+7. [How Tenants View Lease Details and History (Tenant Self-Service)](#7-how-tenants-view-lease-details-and-history-tenant-self-service)
 
 ---
 
@@ -457,6 +467,306 @@ After collecting a payment:
 - The tenant can view their payment history in their account
 - You can generate receipts or reports as needed
 
+### Alternative: Tenant Self-Service Online Payment
+**Note:** Tenants can also make payments online through their own login account. See Process 6: How Tenants Pay Online for detailed instructions.
+
+---
+
+## 6. How Tenants Pay Online (Tenant Self-Service)
+
+### Overview
+Tenants can make rent payments online through their own login account using a secure payment gateway (Stripe). This allows tenants to pay their rent 24/7 without needing to contact the property manager.
+
+### Prerequisites
+- Tenant account with login credentials (email and password)
+- Active lease agreement
+- Valid credit/debit card or payment method
+- Internet connection
+
+### Step-by-Step Process
+
+#### Step 1: Log In to Tenant Account
+1. Go to the Smart Property Manager login page: https://spm-frontend-dfju.onrender.com/
+2. Enter your **Primary Email** (the email used when your tenant account was created)
+3. Enter your **Password** (default password is "tenant123" if not changed)
+4. Click **"Sign In"** or press Enter
+5. You will be redirected to your tenant dashboard
+
+#### Step 2: Navigate to Dashboard
+1. After logging in, you will automatically see your **Dashboard**
+2. The dashboard shows:
+   - Your current rental units
+   - Lease information
+   - Rent payment schedule
+   - Payment status for each month
+
+#### Step 3: View Your Rent Schedule
+1. On the dashboard, you will see cards for each unit you are renting
+2. Each unit card shows:
+   - Property name and address
+   - Unit number
+   - Current lease information
+   - Rent payment schedule
+3. Click on **"View Rent Schedule"** or expand the rent schedule section to see all monthly payments
+
+#### Step 4: Identify Payments to Make
+1. Review your rent schedule to see payment status:
+   - **Paid (Green)** - Payment already completed
+   - **Pending (Yellow)** - Payment not yet due, but can be paid early
+   - **Due (Red)** - Payment is overdue and needs immediate attention
+2. Each payment entry shows:
+   - Month and year (e.g., "January 2025")
+   - Due date
+   - Amount due
+   - Current status
+
+#### Step 5: Select Payment to Process
+1. Find the payment you want to make (Pending or Due status)
+2. Click the **"Pay Now"** or **"Pay Rent"** button next to the payment
+3. A confirmation dialog will appear showing:
+   - Payment month
+   - Amount to pay
+   - Due date
+   - Property and unit information
+
+#### Step 6: Confirm Payment Details
+1. Review the payment information in the confirmation dialog:
+   - Verify the amount is correct
+   - Check the property and unit details
+   - Confirm the month you're paying for
+2. Click **"OK"** or **"Confirm"** to proceed
+3. The system will create a secure payment session
+
+#### Step 7: Complete Payment via Payment Gateway
+1. You will be redirected to the secure payment gateway (Stripe Checkout)
+2. The payment page will open in a new window or tab
+3. Enter your payment information:
+   - **Card Number** (16-digit credit or debit card number)
+   - **Expiration Date** (MM/YY)
+   - **CVV** (3-digit security code on the back of the card)
+   - **Cardholder Name** (name as it appears on the card)
+   - **Billing Address** (if required)
+4. Review the payment summary:
+   - Amount to be charged
+   - Payment description (e.g., "Rent payment for January 2025")
+5. Click **"Pay"** or **"Submit Payment"** to complete the transaction
+
+#### Step 8: Payment Confirmation
+1. After successful payment, you will see a confirmation message
+2. The payment gateway will process your payment
+3. You will be redirected back to your dashboard
+4. The payment status will automatically update to **"Paid"** (Green badge)
+5. You may receive a payment receipt via email (if configured)
+
+#### Step 9: Verify Payment Status
+1. Return to your dashboard
+2. Refresh the page if needed (or it may update automatically)
+3. Check that the payment status has changed to **"Paid"**
+4. The payment should now show a green checkmark or "Paid" badge
+
+### Important Notes
+- **Payment Security:** All payments are processed through Stripe, a secure payment gateway. Your card information is never stored on the property management system.
+- **Payment Timing:** Payments are processed immediately. The status updates automatically after successful payment.
+- **Failed Payments:** If a payment fails, you will see an error message. Check your card details and try again, or contact your bank.
+- **Payment Methods:** Currently supports credit and debit cards. Other payment methods may be available depending on your region.
+- **Early Payments:** You can pay rent in advance (for future months) if desired.
+- **Partial Payments:** Contact your property manager if you need to make a partial payment arrangement.
+
+### Viewing Payment History
+To view your complete payment history:
+1. Go to the **Payments** page from the left sidebar menu
+2. You will see all your payment records:
+   - Paid payments (with green badge)
+   - Pending payments (with yellow badge)
+   - Due payments (with red badge)
+3. Each payment shows:
+   - Payment date
+   - Amount
+   - Payment method
+   - Status
+   - Property and unit information
+4. Use the search bar or filters to find specific payments
+
+### Troubleshooting Payment Issues
+
+**Issue:** Payment button not working
+- **Solution:** Ensure you have an active lease and the payment is in Pending or Due status. Contact your property manager if the issue persists.
+
+**Issue:** Payment gateway not loading
+- **Solution:** Check your internet connection. Disable pop-up blockers as the payment gateway may open in a new window.
+
+**Issue:** Payment failed
+- **Solution:** Verify your card details are correct. Check that your card has sufficient funds. Contact your bank if the issue continues.
+
+**Issue:** Payment processed but status not updated
+- **Solution:** Refresh your dashboard page. If the status still doesn't update, contact your property manager to verify the payment was received.
+
+### Next Steps
+After making an online payment:
+- Your payment record is automatically updated
+- You can view the payment in your payment history
+- You may receive a payment receipt (check your email)
+- The property manager is automatically notified of your payment
+
+---
+
+## 7. How Tenants View Lease Details and History (Tenant Self-Service)
+
+### Overview
+Tenants can view their current lease details and complete lease history through their login account. This includes lease agreement information, rent schedules, payment history, and downloadable lease documents.
+
+### Prerequisites
+- Tenant account with login credentials
+- Active or previous lease agreement
+
+### Step-by-Step Process
+
+#### Step 1: Log In to Tenant Account
+1. Go to the Smart Property Manager login page: https://spm-frontend-dfju.onrender.com/
+2. Enter your **Primary Email** and **Password**
+3. Click **"Sign In"**
+4. You will be redirected to your tenant dashboard
+
+#### Step 2: Access Your Dashboard
+1. After logging in, you will see your **Dashboard**
+2. The dashboard displays:
+   - Your current rental units (if you have an active lease)
+   - Previous rental units (if you have ended leases)
+   - Summary statistics
+
+#### Step 3: View Current Lease Details
+1. On the dashboard, find the card for your current unit
+2. The unit card shows:
+   - **Property Information:**
+     - Property name and address
+     - Property type and features
+   - **Unit Information:**
+     - Unit number
+     - Unit type (Apartment, Office, etc.)
+     - Size, bedrooms, bathrooms
+     - Amenities
+   - **Lease Information:**
+     - Lease start date
+     - Lease end date
+     - Monthly rent amount
+     - Agreement number
+     - Lease status (Active/Ended)
+
+#### Step 4: Expand Lease Details
+1. Click on your unit card or click **"View Details"** to see more information
+2. You will see detailed lease information including:
+   - **Lease Agreement Details:**
+     - Agreement number
+     - Lease start and end dates
+     - Lease duration
+     - Monthly rent amount
+     - Security deposit (if applicable)
+     - Advance payment (if any)
+   - **Property Details:**
+     - Full property address
+     - Property features and amenities
+   - **Unit Specifications:**
+     - Unit size (square feet)
+     - Number of bedrooms and bathrooms
+     - Parking spaces
+     - Unit-specific amenities
+
+#### Step 5: View Rent Payment Schedule
+1. On the unit details, click **"View Rent Schedule"** or expand the rent schedule section
+2. You will see a monthly breakdown showing:
+   - **Month/Year** (e.g., "January 2025")
+   - **Due Date** for each month
+   - **Amount** due for each month
+   - **Payment Status:**
+     - Paid (Green) - Payment completed
+     - Pending (Yellow) - Payment not yet due
+     - Due (Red) - Payment overdue
+   - **Payment Date** (if paid)
+   - **Payment Method** (if paid)
+
+#### Step 6: Download Lease Agreement Document
+1. On the lease details page, look for the **"Download Agreement"** or **"View Agreement"** button
+2. Click the button to download your lease agreement PDF
+3. The PDF will open in a new window or download to your device
+4. Save the PDF for your records
+5. **Note:** The lease agreement document contains all terms and conditions of your rental agreement
+
+#### Step 7: View Lease History
+1. On your dashboard, scroll to find the **"Lease History"** section
+2. Click **"View Lease History"** or expand the history section for your unit
+3. You will see a list of all previous leases for that unit, including:
+   - **Previous Lease Details:**
+     - Lease start and end dates
+     - Agreement number
+     - Monthly rent amount
+     - Lease status (Ended/Expired)
+   - **Payment History** for that lease period
+   - **Notes** or special conditions (if any)
+
+#### Step 8: View All Lease History (Multiple Units)
+If you have rented multiple units:
+1. On the dashboard, you will see separate cards for each unit
+2. Each unit card shows its own lease history
+3. You can expand each unit's history individually
+4. The system maintains a complete history of all your rental agreements
+
+### Information Available in Lease Details
+
+#### Current Lease Information
+- **Agreement Number:** Unique identifier for your lease
+- **Lease Period:** Start date and end date
+- **Monthly Rent:** Amount due each month
+- **Security Deposit:** Amount held as security (if applicable)
+- **Advance Payment:** Any advance payments made
+- **Lease Status:** Active, Expired, or Ended
+
+#### Property and Unit Details
+- **Property Name and Address:** Full property information
+- **Unit Number:** Your specific unit identifier
+- **Unit Type:** Apartment, Office, Villa, Studio, etc.
+- **Size:** Square footage of the unit
+- **Bedrooms and Bathrooms:** Number of each
+- **Parking:** Number of parking spaces included
+- **Amenities:** List of available amenities
+
+#### Payment Information
+- **Rent Schedule:** Monthly breakdown of all payments
+- **Payment Status:** Paid, Pending, or Due for each month
+- **Payment History:** Complete record of all payments made
+- **Payment Methods:** How each payment was made (if applicable)
+- **Payment Dates:** When each payment was received
+
+#### Documents
+- **Lease Agreement PDF:** Downloadable copy of your signed lease agreement
+- **Payment Receipts:** Available through the Payments page
+
+### Important Notes
+- **Privacy:** Only you can view your own lease details. Property managers and other tenants cannot see your information.
+- **Data Accuracy:** All lease information is synchronized with the property manager's records.
+- **Document Access:** Lease agreement documents are available for download at any time during and after your lease period.
+- **History Retention:** Your complete lease history is maintained in the system for record-keeping purposes.
+
+### Troubleshooting
+
+**Issue:** Cannot see lease details
+- **Solution:** Ensure you have an active lease. If you just moved in, the lease details may take a few minutes to appear. Contact your property manager if the issue persists.
+
+**Issue:** Lease agreement PDF not downloading
+- **Solution:** Check your browser's pop-up blocker settings. Try right-clicking the download button and selecting "Save Link As". Contact your property manager if the document is missing.
+
+**Issue:** Payment history not showing
+- **Solution:** Refresh the page. Payment history updates automatically after payments are processed. If payments are missing, contact your property manager.
+
+**Issue:** Previous lease history not visible
+- **Solution:** Lease history is maintained for all your previous rentals. If you don't see a previous lease, contact your property manager to verify it was properly recorded in the system.
+
+### Next Steps
+After viewing your lease details:
+- Download and save your lease agreement PDF for your records
+- Review your rent schedule to plan upcoming payments
+- Make payments online if you have pending or due payments (see Process 6: How Tenants Pay Online)
+- Contact your property manager if you have questions about your lease terms
+
 ---
 
 ## General Tips and Best Practices
@@ -511,10 +821,14 @@ After collecting a payment:
 
 ## Document Control
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Last Updated:** November 2025  
 **Prepared For:** Smart Property Manager System Users  
 **Prepared By:** System Documentation Team
+
+### Version History
+- **v1.1 (November 2025):** Added tenant self-service processes (online payment and lease viewing)
+- **v1.0 (November 2025):** Initial release with administrative processes
 
 ---
 
