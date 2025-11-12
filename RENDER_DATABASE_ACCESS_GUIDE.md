@@ -17,6 +17,31 @@ This guide explains how to access your MongoDB database directly through Render'
 3. A terminal window will open in your browser
 
 ### Step 3: Connect to MongoDB
+
+**Important: Copy/Paste in Render Shell**
+
+Render's web shell may not support standard copy/paste. Here are solutions:
+
+**Method A: Right-Click Paste**
+- Right-click in the shell window
+- Select "Paste" from the context menu
+- Or use `Ctrl + Shift + V` (Windows/Linux) or `Cmd + V` (Mac)
+
+**Method B: Type Manually**
+- Type the command manually (it's short):
+  ```
+  mongosh "mongodb://spm-mongodb:27017/smart_property_manager"
+  ```
+
+**Method C: Use Browser Developer Tools**
+- Press `F12` to open browser developer tools
+- Go to Console tab
+- You can copy/paste there, then manually type in shell
+
+**Method D: Use a Text Editor**
+- Copy commands to a text editor (Notepad, etc.)
+- Keep it open and type commands manually while referencing it
+
 1. In the shell, type the following command:
    ```bash
    mongosh "mongodb://spm-mongodb:27017/smart_property_manager"
@@ -271,6 +296,30 @@ All should return `0` except `users` (which should only have admin accounts).
 
 ## Troubleshooting
 
+### Issue: Copy/Paste Not Working in Shell
+**Solutions:**
+1. **Right-Click Method:**
+   - Right-click in the shell window
+   - Select "Paste" from the context menu
+   
+2. **Keyboard Shortcuts:**
+   - Windows/Linux: Try `Ctrl + Shift + V` or `Shift + Insert`
+   - Mac: Try `Cmd + V` or `Shift + Insert`
+   
+3. **Browser-Specific:**
+   - Chrome: Right-click → Paste
+   - Firefox: Right-click → Paste or `Shift + Insert`
+   - Edge: Right-click → Paste or `Ctrl + Shift + V`
+   
+4. **Alternative:**
+   - Type commands manually (most MongoDB commands are short)
+   - Use a text editor to prepare commands, then type them
+   - Use browser's developer console to test copy/paste first
+
+5. **Enable Clipboard API (if available):**
+   - Some browsers require permission for clipboard access
+   - Check browser settings for clipboard permissions
+
 ### Issue: Shell Not Available
 **Solution:**
 - Ensure your backend service is running
@@ -318,14 +367,38 @@ All should return `0` except `users` (which should only have admin accounts).
 - `invoices` - Invoice records
 - `leases` - Lease agreements
 
-**Common Commands:**
+**Common Commands (Easy to Type):**
 ```javascript
-show collections                    // List all collections
-db.collectionName.find().pretty()   // View documents
-db.collectionName.countDocuments()  // Count documents
-db.collectionName.deleteMany({})    // Delete all documents
-exit                                // Exit MongoDB shell
+// Connect to database
+mongosh "mongodb://spm-mongodb:27017/smart_property_manager"
+
+// Quick checks (short commands)
+show collections
+db.users.countDocuments()
+db.properties.countDocuments()
+db.payments.countDocuments()
+
+// View data
+db.users.find().pretty()
+db.properties.find().pretty()
+
+// Clear data (type carefully!)
+db.users.deleteMany({ role: 'TENANT' })
+db.properties.deleteMany({})
+db.payments.deleteMany({})
+
+// Exit
+exit
 ```
+
+**Tip for Copy/Paste Issues:**
+Since copy/paste may not work, here are the shortest commands you'll need:
+
+1. **Connect:** `mongosh "mongodb://spm-mongodb:27017/smart_property_manager"`
+2. **Check counts:** `db.users.countDocuments()` (then press Enter, repeat for other collections)
+3. **View users:** `db.users.find().pretty()`
+4. **Clear tenants:** `db.users.deleteMany({ role: 'TENANT' })`
+5. **Clear all:** Type each delete command one at a time
 
 ---
 
