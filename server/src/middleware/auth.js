@@ -24,7 +24,8 @@ export async function authenticate(req, res, next) {
       });
     }
     
-    req.user = decoded; // { id, role }
+    // Update req.user with current user data (including role from database)
+    req.user = { id: decoded.id, role: user.role, email: user.email, name: user.name };
     next();
   } catch (e) {
     return res.status(401).json({ message: 'Invalid or expired token' });
@@ -34,11 +35,24 @@ export async function authenticate(req, res, next) {
 export function authorize(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+    // SUPER_ADMIN bypasses all role restrictions
+    if (req.user.role === 'SUPER_ADMIN') {
+      return next();
+    }
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
     next();
   };
+}
+
+// Middleware to check if user is super admin
+export function requireSuperAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+  if (req.user.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ message: 'Super admin access required' });
+  }
+  next();
 }
 
 

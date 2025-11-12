@@ -10,7 +10,8 @@
     "fix-images": "node fix-image-paths.js",
     "fix-leases": "node scripts/fix-old-leases.js",
     "delete-unit-100-leases": "node scripts/delete-unit-100-leases.js",
-    "migrate-file-urls": "node scripts/migrate-file-urls.js"
+    "migrate-file-urls": "node scripts/migrate-file-urls.js",
+    "create-super-admin": "node src/scripts/createSuperAdmin.js"
   },
   "dependencies": {
     "express": "^4.18.2",

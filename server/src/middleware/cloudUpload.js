@@ -11,8 +11,12 @@ const cloudinaryV1 = cloudinary.v2;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Check if we should use cloud storage (production)
-const USE_CLOUD_STORAGE = process.env.USE_CLOUD_STORAGE === 'true' || process.env.NODE_ENV === 'production';
+// Check if we should use cloud storage (only if explicitly enabled and credentials provided)
+// Default to local storage for Render persistent disk
+const USE_CLOUD_STORAGE = process.env.USE_CLOUD_STORAGE === 'true' && 
+                          process.env.CLOUDINARY_CLOUD_NAME && 
+                          process.env.CLOUDINARY_API_KEY && 
+                          process.env.CLOUDINARY_API_SECRET;
 
 let storage;
 

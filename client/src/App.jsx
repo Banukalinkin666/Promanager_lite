@@ -9,6 +9,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import ThemeToggle from './components/ThemeToggle';
 import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
+import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
 import PropertiesPage from './pages/PropertiesPage.jsx';
 import TenantsPage from './pages/TenantsPage.jsx';
 import PaymentsPage from './pages/PaymentsPage.jsx';
@@ -29,7 +30,8 @@ function Sidebar({ isOpen, onToggle }) {
   const [expandedMenus, setExpandedMenus] = useState({});
 
   const menuItems = [
-    { path: '/', label: 'Dashboard', icon: BarChart3, roles: ['ADMIN', 'OWNER', 'TENANT'] },
+    { path: '/', label: 'Dashboard', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN', 'OWNER', 'TENANT'] },
+    { path: '/admin', label: 'Admin Panel', icon: Shield, roles: ['SUPER_ADMIN'] },
     { path: '/properties', label: 'Properties', icon: Building2, roles: ['ADMIN', 'OWNER'] },
     { path: '/tenants', label: 'Tenants', icon: Users, roles: ['ADMIN', 'OWNER'] },
     { path: '/payments', label: 'Payments', icon: CreditCard, roles: ['ADMIN', 'OWNER'] },
@@ -659,6 +661,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute roles={['SUPER_ADMIN']}><AdminDashboardPage /></ProtectedRoute>} />
             <Route path="/properties" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
             <Route path="/properties/:id" element={<ProtectedRoute roles={['OWNER','ADMIN']}><PropertiesPage /></ProtectedRoute>} />
             <Route path="/move-in/:propertyId/:unitId" element={<ProtectedRoute roles={['OWNER','ADMIN']}><MoveInPage /></ProtectedRoute>} />
