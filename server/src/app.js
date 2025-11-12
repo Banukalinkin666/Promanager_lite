@@ -31,6 +31,7 @@ app.use(cors({
     'https://spm-frontend.onrender.com',
     'https://spm-frontend-dfju.onrender.com',
     /^https:\/\/spm-frontend-.*\.onrender\.com$/,
+    /^https:\/\/spm-backend.*\.onrender\.com$/, // Allow backend URL itself
     'http://localhost:3000',
     'http://localhost:5173'
   ].filter(Boolean),
@@ -114,7 +115,9 @@ app.get('/api/seed', async (_req, res) => {
 });
 
 // Create super admin endpoint (one-time use, should be secured in production)
-app.post('/api/create-super-admin', async (req, res) => {
+// Also available as GET for easier testing
+app.get('/api/create-super-admin', async (req, res) => {
+  // Same logic as POST
   try {
     const User = (await import('./models/User.js')).default;
     
@@ -123,7 +126,7 @@ app.post('/api/create-super-admin', async (req, res) => {
     if (existingSuperAdmin) {
       if (existingSuperAdmin.role === 'SUPER_ADMIN') {
         // Update password to ensure it's correct
-        existingSuperAdmin.passwordHash = await User.hashPassword('Webmaet99@Smtk');
+        existingSuperAdmin.passwordHash = await User.hashPassword('Welcome@123');
         existingSuperAdmin.isActive = true;
         existingSuperAdmin.status = 'ACTIVE';
         await existingSuperAdmin.save();
@@ -136,7 +139,7 @@ app.post('/api/create-super-admin', async (req, res) => {
       } else {
         // Update existing user to super admin
         existingSuperAdmin.role = 'SUPER_ADMIN';
-        existingSuperAdmin.passwordHash = await User.hashPassword('Webmaet99@Smtk');
+        existingSuperAdmin.passwordHash = await User.hashPassword('Welcome@123');
         existingSuperAdmin.name = 'Super Admin';
         existingSuperAdmin.isActive = true;
         existingSuperAdmin.status = 'ACTIVE';
@@ -154,7 +157,65 @@ app.post('/api/create-super-admin', async (req, res) => {
     const superAdmin = await User.create({
       name: 'Super Admin',
       email: 'bsoftkandy@gmail.com',
-      passwordHash: await User.hashPassword('Webmaet99@Smtk'),
+      passwordHash: await User.hashPassword('Welcome@123'),
+      role: 'SUPER_ADMIN',
+      isActive: true,
+      status: 'ACTIVE'
+    });
+
+    res.json({ 
+      message: 'Super admin created successfully!',
+      email: superAdmin.email,
+      role: superAdmin.role,
+      id: superAdmin._id
+    });
+  } catch (error) {
+    console.error('Error creating super admin:', error);
+    res.status(500).json({ message: 'Failed to create super admin', error: error.message });
+  }
+});
+
+app.post('/api/create-super-admin', async (req, res) => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    
+    // Check if super admin already exists
+    const existingSuperAdmin = await User.findOne({ email: 'bsoftkandy@gmail.com' });
+    if (existingSuperAdmin) {
+      if (existingSuperAdmin.role === 'SUPER_ADMIN') {
+        // Update password to ensure it's correct
+        existingSuperAdmin.passwordHash = await User.hashPassword('Welcome@123');
+        existingSuperAdmin.isActive = true;
+        existingSuperAdmin.status = 'ACTIVE';
+        await existingSuperAdmin.save();
+        return res.json({ 
+          message: 'Super admin already exists - password updated',
+          email: existingSuperAdmin.email,
+          role: existingSuperAdmin.role,
+          id: existingSuperAdmin._id
+        });
+      } else {
+        // Update existing user to super admin
+        existingSuperAdmin.role = 'SUPER_ADMIN';
+        existingSuperAdmin.passwordHash = await User.hashPassword('Welcome@123');
+        existingSuperAdmin.name = 'Super Admin';
+        existingSuperAdmin.isActive = true;
+        existingSuperAdmin.status = 'ACTIVE';
+        await existingSuperAdmin.save();
+        return res.json({ 
+          message: 'Existing user upgraded to super admin',
+          email: existingSuperAdmin.email,
+          role: existingSuperAdmin.role,
+          id: existingSuperAdmin._id
+        });
+      }
+    }
+
+    // Create super admin
+    const superAdmin = await User.create({
+      name: 'Super Admin',
+      email: 'bsoftkandy@gmail.com',
+      passwordHash: await User.hashPassword('Welcome@123'),
       role: 'SUPER_ADMIN',
       isActive: true,
       status: 'ACTIVE'

@@ -17,7 +17,7 @@ async function createSuperAdmin() {
       if (existingSuperAdmin.role === 'SUPER_ADMIN') {
         console.log('✅ Super admin already exists');
         // Update password to ensure it's correct
-        existingSuperAdmin.passwordHash = await User.hashPassword('Webmaet99@Smtk');
+        existingSuperAdmin.passwordHash = await User.hashPassword('Welcome@123');
         await existingSuperAdmin.save();
         console.log('✅ Super admin password updated');
         await mongoose.disconnect();
@@ -25,7 +25,7 @@ async function createSuperAdmin() {
       } else {
         // Update existing user to super admin
         existingSuperAdmin.role = 'SUPER_ADMIN';
-        existingSuperAdmin.passwordHash = await User.hashPassword('Webmaet99@Smtk');
+        existingSuperAdmin.passwordHash = await User.hashPassword('Welcome@123');
         existingSuperAdmin.name = 'Super Admin';
         existingSuperAdmin.isActive = true;
         await existingSuperAdmin.save();
@@ -39,7 +39,7 @@ async function createSuperAdmin() {
     const superAdmin = await User.create({
       name: 'Super Admin',
       email: 'bsoftkandy@gmail.com',
-      passwordHash: await User.hashPassword('Webmaet99@Smtk'),
+      passwordHash: await User.hashPassword('Welcome@123'),
       role: 'SUPER_ADMIN',
       isActive: true,
       status: 'ACTIVE'
